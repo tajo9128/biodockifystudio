@@ -60,7 +60,7 @@ export const useStreams = (screenVideoRef, cameraVideoRef, setStatus) => {
         }
     };
 
-    const toggleMic = async () => {
+    const toggleMic = async (deviceId) => {
         if (audioStream) {
             audioStream.getTracks().forEach(track => track.stop());
             setAudioStream(null);
@@ -68,16 +68,17 @@ export const useStreams = (screenVideoRef, cameraVideoRef, setStatus) => {
         }
 
         try {
-            const stream = await mediaManager.getAudioStream();
+            const stream = await mediaManager.getAudioStream(deviceId);
             setAudioStream(stream);
             setStatus('ready');
+            return stream;
         } catch (err) {
             console.error('Error starting mic stream:', err);
             alert(`Could not acquire microphone: ${err.message}`);
         }
     };
 
-    const toggleCamera = async (width, height,stream) => {
+    const toggleCamera = async (deviceId) => {
         if (cameraStream) {
             cameraStream.getTracks().forEach(track => track.stop());
             setCameraStream(null);
@@ -87,40 +88,41 @@ export const useStreams = (screenVideoRef, cameraVideoRef, setStatus) => {
         }
 
         try {
+            const stream = await mediaManager.getCameraStream(1280, 720, deviceId);
+            const track = stream.getVideoTracks()[0];
+            const settings = track.getSettings();
+
             setCameraDimensions({
-                width: width || 1280,
-                height:  height || 720
+                width: settings.width || 1280,
+                height: settings.height || 720
             });
 
             setCameraStream(stream);
-            console.log('using device camera stream:', stream);
             if (cameraVideoRef.current) cameraVideoRef.current.srcObject = stream;
 
-            // Explicitly play
             await cameraVideoRef.current?.play().catch(e => console.warn('Camera video play delayed:', e));
-
             setStatus('ready');
+            return stream;
         } catch (err) {
             console.error('Error starting camera stream:', err);
             alert(`Could not acquire camera: ${err.message}`);
         }
     };
-    const changeCamera = (width, height, stream) => {
-          if (cameraStream) {
+    const changeCamera = async (deviceId) => {
+        if (cameraStream) {
             cameraStream.getTracks().forEach(track => track.stop());
             setCameraStream(null);
-            setCameraDimensions({ width: 0, height: 0 });
-            if (cameraVideoRef.current) cameraVideoRef.current.srcObject = null;
-            
         }
-        setCameraDimensions({
-            width: width || 1280,
-            height:  height || 720
-        });
-        if (cameraVideoRef.current) cameraVideoRef.current.srcObject = stream;
-        setCameraStream(stream);
-        console.log('using device camera stream:', stream);
-    }
+        return await toggleCamera(deviceId);
+    };
+
+    const changeMic = async (deviceId) => {
+        if (audioStream) {
+            audioStream.getTracks().forEach(track => track.stop());
+            setAudioStream(null);
+        }
+        return await toggleMic(deviceId);
+    };
 
     return {
         screenStream,
@@ -132,6 +134,7 @@ export const useStreams = (screenVideoRef, cameraVideoRef, setStatus) => {
         toggleMic,
         toggleCamera,
         stopAll,
-        changeCamera
+        changeCamera,
+        changeMic
     };
 };

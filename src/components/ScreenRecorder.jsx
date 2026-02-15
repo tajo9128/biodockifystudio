@@ -33,7 +33,7 @@ const ScreenRecorder = () => {
     const {
         screenStream, audioStream, cameraStream,
         screenDimensions, cameraDimensions,
-        toggleScreen, toggleMic, toggleCamera, stopAll: stopStreams,changeCamera
+        toggleScreen, toggleMic, toggleCamera, stopAll: stopStreams, changeCamera, changeMic
     } = useStreams(screenVideoRef, cameraVideoRef, setStatus);
 
     const [webcamShape, setWebcamShape] = useState('circle');
@@ -81,7 +81,7 @@ const ScreenRecorder = () => {
     }, [showToast]);
 
     const {
-        isRecording, isPaused, startRecording: startMediaRecording, pauseRecording, resumeRecording, stopRecording, resetRecording,micStream, setMicStream
+        isRecording, isPaused, startRecording: startMediaRecording, pauseRecording, resumeRecording, stopRecording, resetRecording
     } = useRecording({
         screenStream, audioStream, cameraStream,
         activeBg, screenScale, canvasRef,
@@ -375,9 +375,8 @@ const ScreenRecorder = () => {
         }
     }, [isHistoryOpen, directoryHandle, googleToken, auditCloudRegistry, loadCloudMetadata, syncLibrary]);
 
-    const startRecording = useCallback((micStreamOverride) => {
+    const startRecording = useCallback(() => {
         if (isRecording || countdown !== null) return;
-        setMicStream(micStreamOverride);
         setCountdown(3);
         countdownTimerRef.current = setInterval(() => {
             setCountdown(prev => {
@@ -452,9 +451,8 @@ const ScreenRecorder = () => {
                 stopRecording={stopRecording}
                 isPaused={isPaused}
                 handleStopAll={handleStopAll}
-                micStream={micStream}
-                setMicStream={setMicStream}
                 changeCamera={changeCamera}
+                changeMic={changeMic}
             />
 
             <div className="mode-info">

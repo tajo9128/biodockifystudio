@@ -16,7 +16,6 @@ export const useRecording = ({
     const [isRecording, setIsRecording] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
     const [status, setStatus] = useState('idle');
-    const [micStream, setMicStream] = useState('');
     const mediaRecorderRef = useRef(null);
     const chunksRef = useRef([]);
     const isStartingRef = useRef(false);
@@ -60,15 +59,13 @@ export const useRecording = ({
             }
 
             // Add Audio track if available
-
- 
-            if ( audioStream) {
-                console.log("Stream:", micStream)
-                 tracks.push(micStream)
-
-
-    
-    }
+            if (audioStream) {
+                const audioTrack = audioStream.getAudioTracks()[0];
+                if (audioTrack) {
+                    tracks.push(audioTrack);
+                    console.log('Added audio track to recording');
+                }
+            }
 
             if (tracks.length === 0) throw new Error('No tracks available for recording');
 
@@ -197,8 +194,6 @@ export const useRecording = ({
         resumeRecording,
         stopRecording,
         resetRecording,
-        mediaRecorderRef,
-        micStream,
-        setMicStream
+        mediaRecorderRef
     };
 };

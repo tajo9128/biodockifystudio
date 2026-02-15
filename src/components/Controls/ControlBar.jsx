@@ -30,22 +30,21 @@ export const ControlBar = ({
     handleStopAll,
     recordingFormat,
     setRecordingFormat,
-    micStream,
-    setMicStream,
-    changeCamera
+    changeCamera,
+    changeMic
 }) => {
     const [activePanel, setActivePanel] = React.useState(null); // 'camera', 'bg', 'quality', 'format'
     const supportedFormats = React.useMemo(() => getSupportedFormats(), []);
     const [showMicOptions, setShowMicOptions] = React.useState(false);
     const [showCameraOptions, setShowCameraOptions] = React.useState(false);
-    const [cameraOption, setCameraOption] = React.useState(''); 
+    const [cameraOption, setCameraOption] = React.useState('');
     const [micID, setMicID] = React.useState('');
     const [cameras, setCameras] = React.useState([]);
     const [microphones, setMicrophones] = React.useState([]);
     const togglePanel = (panel) => {
         setActivePanel(activePanel === panel ? null : panel);
     };
-        const getCameras = async () => {
+    const getCameras = async () => {
         try {
             const devices = await navigator.mediaDevices.enumerateDevices();
             const videoDevices = devices.filter(device => device.kind === 'videoinput');
@@ -53,11 +52,11 @@ export const ControlBar = ({
                 label: device.label,
                 deviceId: device.deviceId,
             }));
-            return cameras; 
+            return cameras;
         } catch (error) {
             console.error("Failed to enumerate devices:", error);
         }
-        };
+    };
 
 
     return (
@@ -201,134 +200,85 @@ export const ControlBar = ({
                         {screenStream ? '● Screen' : 'Screen'}
                     </button>
                     <div className="grid">
-                    <button className={`btn-pill ${cameraStream ? 'active' : ''}`}
-                        onClick={async() => {
-                            if (!cameraStream) {                            
-                                try{
-                                const stream = await navigator.mediaDevices.getUserMedia({ video: true });   
-                                const activeTrack = stream.getVideoTracks()[0];
-                                const settings = activeTrack.getSettings();
-                                console.log('Camera stream started with settings:', settings)
-                                await changeCamera(settings.width, settings.height, stream);
-                                const streams= await getCameras();
-                                setCameras(streams);
-                                // `deviceId` of the camera actually in use
-                                if (cameraOption==='') {
-                                const defaultCameraId = settings.deviceId;
-                                setCameraOption(defaultCameraId);
-                                }
-                                setActivePanel('camera'); 
-                                } catch(e){
-                                    alert(`Could not acquire camera: ${e.message}`);
-                                }
-                                
-                            } else {
-                                // If already on, treat as a toggle for the panel
-                                if (activePanel === 'camera') {
-                                    setActivePanel(null);
-                                } else {
+                        <button className={`btn-pill ${cameraStream ? 'active' : ''}`}
+                            onClick={async () => {
+                                if (!cameraStream) {
+                                    await toggleCamera();
+                                    const streams = await getCameras();
+                                    setCameras(streams);
                                     setActivePanel('camera');
+                                } else {
+                                    togglePanel('camera');
                                 }
-                            }
-                        }} disabled={isRecording}>
-                        {cameraStream ? '● Camera' : 'Camera'}
-                    </button>
-                         <button className="dropDownBtn" onClick={()=>{
-                        setShowCameraOptions(!showCameraOptions)
-                    }}
-                    disabled={isRecording}>
-                            <ChevronDown/>
-                    </button>
-                    {
-                        showCameraOptions && cameras.length > 0 && (
-                            <div className="dropDownMenu" style={{left: "4rem",height:cameras.length>2?'170px':'fit-content',overflowY:cameras.length>2?'scroll':'visible'}}>
-                                <div  >
-                                    {cameras.map(type => (
-                                        
-                                            <button key={type.deviceId} onClick={async () =>{
-                                                
-                                                    const stream = await navigator.mediaDevices.getUserMedia({
-                                                        video: { deviceId: { exact: type.deviceId } }
-                                                    });
-                                                    const activeTrack = stream.getVideoTracks()[0];
-                                                    const settings = activeTrack.getSettings();
-                                                    changeCamera(settings.width, settings.height, stream);
-                                                    setCameraOption(type.deviceId);
+                            }} disabled={isRecording}>
+                            {cameraStream ? '● Camera' : 'Camera'}
+                        </button>
+                        <button className="dropDownBtn" onClick={() => {
+                            setShowCameraOptions(!showCameraOptions)
+                        }}
+                            disabled={isRecording}>
+                            <ChevronDown />
+                        </button>
+                        {
+                            showCameraOptions && cameras.length > 0 && (
+                                <div className="dropDownMenu" style={{ left: "4rem", height: cameras.length > 2 ? '170px' : 'fit-content', overflowY: cameras.length > 2 ? 'scroll' : 'visible' }}>
+                                    <div  >
+                                        {cameras.map(type => (
+
+                                            <button key={type.deviceId} onClick={async () => {
+                                                await changeCamera(type.deviceId);
+                                                setCameraOption(type.deviceId);
                                             }}
                                                 className={`btn-small  ${cameraOption === type.deviceId ? 'active' : ''} dropDownElement`}>
                                                 {type.label}
                                             </button>
-                                        
-                                    ))}
-                                </div>
-                            </div>
-                        )
-                    }
-                    </div>
-                     <div className='grid'>
-                    <button className={`btn-pill ${audioStream ? 'active' : ''}`}
-                    onClick={async ()=>{
-                    try{
-                    await toggleMic()
-                    const devices = await navigator.mediaDevices.enumerateDevices();
-                    let audioInputs = devices.filter(device => device.kind === 'audioinput');
-                    let audios = audioInputs.map(device => ({
-                        label: device.label,
-                        deviceId: device.deviceId,
-                    }));
-                    if(micID === ''){ 
-                    if (micStream) {
-                        micStream.getTracks().forEach(track => track.stop());
-                    }
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    const track = stream.getAudioTracks()[0];
-                    setMicID(audioInputs.find(d => d.deviceId === track.
-                    getSettings().deviceId).deviceId);  
-                    setMicStream(track);
-                    }
-                    setMicrophones(audios);
- 
-                    }
-                    catch(err){
-                        console.error('Error toggling mic:', err);
-                    }
-                    }} disabled={isRecording} >
-                        {audioStream ? '● Mic' : 'Mic'}
-                    </button>
-                    <button className="dropDownBtn" onClick={()=>{
-                        setShowMicOptions(!showMicOptions)
-                    }} disabled={isRecording}>
-                            <ChevronDown/>
-                    </button>
-                      {
-                        showMicOptions && microphones.length > 0 && (
-                            <div style={{ height:microphones.length>2?'170px':'fit-content',overflowY:microphones.length>2?'scroll':'visible'}} className='dropDownMenu'>
-                                <div  >
-                                    {microphones.map(type => (
-                                       
-                                            <button key={type.deviceId} onClick={async () => {
-                                                    try {
-                                                        const stream = await navigator.mediaDevices.getUserMedia({
-                                                            audio: { deviceId: { exact: type.deviceId } }
-                                                        });
-                                                        const track = stream.getAudioTracks()[0];
-                                                        setMicStream(track);
-                                                        setMicID(type.deviceId); 
-                                                    } catch (e) {
-                                                        alert(`Could not acquire microphone: ${e.message}`);
-                                                    }
-                                                }}
-                                                className={`btn-small  ${micID === type.deviceId ? 'active' : ''} dropDownElement`}
 
-                                               >
-                                                {type.label}
-                                            </button>   
-                        
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        )
-                    }
+                            )
+                        }
+                    </div>
+                    <div className='grid'>
+                        <button className={`btn-pill ${audioStream ? 'active' : ''}`}
+                            onClick={async () => {
+                                if (!audioStream) {
+                                    await toggleMic();
+                                    const devices = await navigator.mediaDevices.enumerateDevices();
+                                    const audios = devices.filter(device => device.kind === 'audioinput').map(device => ({
+                                        label: device.label,
+                                        deviceId: device.deviceId,
+                                    }));
+                                    setMicrophones(audios);
+                                } else {
+                                    toggleMic();
+                                }
+                            }} disabled={isRecording}>
+                            {audioStream ? '● Mic' : 'Mic'}
+                        </button>
+                        <button className="dropDownBtn" onClick={() => {
+                            setShowMicOptions(!showMicOptions)
+                        }} disabled={isRecording}>
+                            <ChevronDown />
+                        </button>
+                        {
+                            showMicOptions && microphones.length > 0 && (
+                                <div style={{ height: microphones.length > 2 ? '170px' : 'fit-content', overflowY: microphones.length > 2 ? 'scroll' : 'visible' }} className='dropDownMenu'>
+                                    <div>
+                                        {microphones.map(type => (
+                                            <button key={type.deviceId} onClick={async () => {
+                                                await changeMic(type.deviceId);
+                                                setMicID(type.deviceId);
+                                            }}
+                                                className={`btn-small  ${micID === type.deviceId ? 'active' : ''} dropDownElement`}
+                                            >
+                                                {type.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )
+                        }
                     </div>
                     <div className="vertical-divider" style={{ width: '1px', background: 'var(--glass-border)', margin: '0 0.2rem' }}></div>
                     <button className={`btn-pill ${activeBg !== 'none' || screenScale !== 1.0 || activePanel === 'bg' ? 'active' : ''}`}
@@ -354,7 +304,7 @@ export const ControlBar = ({
                                 <button className="btn btn-record"
                                     onClick={() => {
                                         setActivePanel(null);
-                                        startRecording(micStream);
+                                        startRecording();
                                     }}
                                     disabled={!screenStream && !cameraStream}>
                                     Start Recording
@@ -374,12 +324,10 @@ export const ControlBar = ({
                             )}
                         </>
                     )}
-                    <button className="btn-icon-bg" onClick={() => { setActivePanel(null); 
-                        handleStopAll(); 
-                        cameras?.forEach(cam => {
-  cam.stream?.getTracks().forEach(track => track.stop());
-  
-});}} title="Reset">✕</button>
+                    <button className="btn-icon-bg" onClick={() => {
+                        setActivePanel(null);
+                        handleStopAll();
+                    }} title="Reset">✕</button>
                 </div>
             </div>
         </div>
