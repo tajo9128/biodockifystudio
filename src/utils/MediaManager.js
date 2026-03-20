@@ -24,9 +24,9 @@ class MediaManager {
                     frameRate: { ideal: 30, max: 30 }
                 },
                 audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false
                 }
             });
         } catch (err) {
@@ -40,9 +40,9 @@ class MediaManager {
             return await navigator.mediaDevices.getUserMedia({
                 audio: {
                     deviceId: deviceId ? { exact: deviceId } : undefined,
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false
                 },
                 video: false
             });
