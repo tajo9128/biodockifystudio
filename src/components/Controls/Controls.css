@@ -24,6 +24,28 @@
   -webkit-line-clamp: 3;   /* number of lines */
   -webkit-box-orient: vertical;
   }
+.source-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.source-select {
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  color: var(--text-main);
+  padding: 0.2rem 0.4rem;
+  font-size: 0.65rem;
+  max-width: 90px;
+  cursor: pointer;
+}
+
+.source-select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
 .dropDownMenu{
   position: absolute;
   top: 4rem;

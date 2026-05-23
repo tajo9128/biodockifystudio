@@ -24,6 +24,8 @@ import { ChatPanel } from './Chat/ChatPanel';
 import { YouTubeUploadModal } from './Modals/YouTubeUploadModal';
 import { FilterPanel } from './Filters/FilterPanel';
 import { applyFilters } from '../utils/FilterEngine';
+import { Timeline } from './Timeline/Timeline';
+import { useTimeline } from '../hooks/useTimeline';
 
 const QUALITY_PRESETS = {
     'native': { width: null, height: null, label: 'Native Source', bitrate: 15000000 },
@@ -40,9 +42,11 @@ const ScreenRecorder = () => {
 
     const [status, setStatus] = useState('idle');
     const {
-        screenStream, audioStream, cameraStream,
+        screenStream, audioStream, cameraStream, systemAudioStream,
         screenDimensions, cameraDimensions,
-        toggleScreen, toggleMic, toggleCamera, stopAll: stopStreams, changeCamera, changeMic
+        sourceType, setSourceType,
+        toggleScreen, toggleSystemAudio, toggleMic, toggleCamera,
+        stopAll: stopStreams, changeCamera, changeMic
     } = useStreams(screenVideoRef, cameraVideoRef, setStatus);
 
     const [webcamShape, setWebcamShape] = useState('circle');
@@ -72,6 +76,8 @@ const ScreenRecorder = () => {
     const { applyZoom, restoreZoom } = useZoom(canvasRef, zoomEnabled);
     const ai = useAI();
     const youtube = useYouTube();
+    const timeline = useTimeline();
+    const [showTimeline, setShowTimeline] = useState(false);
 
     const showToast = useCallback((title, message, type = 'info') => {
         setToast({ title, message, type });
@@ -391,7 +397,39 @@ const ScreenRecorder = () => {
                 annotationEnabled={annotationEnabled} setAnnotationEnabled={setAnnotationEnabled}
                 zoomEnabled={zoomEnabled} setZoomEnabled={setZoomEnabled}
                 chatOpen={chatOpen} setChatOpen={setChatOpen}
-                filterPanelOpen={filterPanelOpen} setFilterPanelOpen={setFilterPanelOpen} />
+                filterPanelOpen={filterPanelOpen} setFilterPanelOpen={setFilterPanelOpen}
+                sourceType={sourceType} setSourceType={setSourceType}
+                toggleSystemAudio={toggleSystemAudio} systemAudioStream={systemAudioStream} />
+
+            {/* Timeline toggle */}
+            <div style={{ display: 'flex', justifyContent: 'center', margin: '1rem 0' }}>
+                <button className={`btn-pill ${showTimeline ? 'active' : ''}`}
+                    onClick={() => setShowTimeline(!showTimeline)}>
+                    Timeline Editor {showTimeline ? '(Hide)' : '(Show)'}
+                </button>
+            </div>
+
+            {showTimeline && (
+                <Timeline
+                    clips={timeline.clips}
+                    tracks={timeline.tracks}
+                    currentTime={timeline.currentTime}
+                    duration={timeline.duration}
+                    selectedClipId={timeline.selectedClipId}
+                    isPlaying={timeline.isPlaying}
+                    zoom={timeline.zoom}
+                    onSelectClip={timeline.setSelectedClipId}
+                    onSeek={timeline.seek}
+                    onSplit={timeline.splitAtPlayhead}
+                    onDelete={timeline.deleteSelected}
+                    onMove={timeline.moveClip}
+                    onResize={timeline.resizeClip}
+                    onPlay={timeline.play}
+                    onPause={timeline.pause}
+                    onStop={timeline.stop}
+                    onZoomChange={timeline.setZoom}
+                />
+            )}
 
             <div className="mode-info">
                 <div className="status-dot" style={{ background: cameraStream ? 'var(--primary)' : 'var(--success)' }}></div>

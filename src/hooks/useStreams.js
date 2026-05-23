@@ -5,24 +5,28 @@ export const useStreams = (screenVideoRef, cameraVideoRef, setStatus) => {
     const [screenStream, setScreenStream] = useState(null);
     const [audioStream, setAudioStream] = useState(null);
     const [cameraStream, setCameraStream] = useState(null);
+    const [systemAudioStream, setSystemAudioStream] = useState(null);
     const [screenDimensions, setScreenDimensions] = useState({ width: 0, height: 0 });
     const [cameraDimensions, setCameraDimensions] = useState({ width: 0, height: 0 });
+    const [sourceType, setSourceType] = useState('screen'); // screen, window, tab
 
     const stopAll = useCallback(() => {
-        [screenStream, cameraStream, audioStream].forEach(s => {
+        [screenStream, cameraStream, audioStream, systemAudioStream].forEach(s => {
             s?.getTracks().forEach(t => t.stop());
         });
         setScreenStream(null);
         setCameraStream(null);
         setAudioStream(null);
+        setSystemAudioStream(null);
         setScreenDimensions({ width: 0, height: 0 });
         setCameraDimensions({ width: 0, height: 0 });
         if (screenVideoRef.current) screenVideoRef.current.srcObject = null;
         if (cameraVideoRef.current) cameraVideoRef.current.srcObject = null;
         setStatus('idle');
-    }, [screenStream, cameraStream, audioStream, screenVideoRef, cameraVideoRef, setStatus]);
+    }, [screenStream, cameraStream, audioStream, systemAudioStream, screenVideoRef, cameraVideoRef, setStatus]);
 
-    const toggleScreen = async () => {
+    const toggleScreen = async (type) => {
+        const captureType = type || sourceType;
         if (screenStream) {
             screenStream.getTracks().forEach(track => track.stop());
             setScreenStream(null);
@@ -32,7 +36,7 @@ export const useStreams = (screenVideoRef, cameraVideoRef, setStatus) => {
         }
 
         try {
-            const stream = await mediaManager.getScreenStream();
+            const stream = await mediaManager.getScreenStream(captureType);
             const track = stream.getVideoTracks()[0];
             const settings = track.getSettings();
 
@@ -55,6 +59,24 @@ export const useStreams = (screenVideoRef, cameraVideoRef, setStatus) => {
             setStatus('ready');
         } catch (err) {
             alert(`Could not acquire screen: ${err.message}`);
+        }
+    };
+
+    const toggleSystemAudio = async () => {
+        if (systemAudioStream) {
+            systemAudioStream.getTracks().forEach(track => track.stop());
+            setSystemAudioStream(null);
+            return;
+        }
+        try {
+            const stream = await mediaManager.getSystemAudio();
+            if (stream) {
+                setSystemAudioStream(stream);
+            } else {
+                alert('System audio capture is not supported in this browser. Try Chrome on Windows/Linux.');
+            }
+        } catch {
+            alert('System audio capture not available. Try Chrome with "Share audio" checked.');
         }
     };
 
@@ -104,6 +126,7 @@ export const useStreams = (screenVideoRef, cameraVideoRef, setStatus) => {
             alert(`Could not acquire camera: ${err.message}`);
         }
     };
+
     const changeCamera = async (deviceId) => {
         if (cameraStream) {
             cameraStream.getTracks().forEach(track => track.stop());
@@ -124,13 +147,17 @@ export const useStreams = (screenVideoRef, cameraVideoRef, setStatus) => {
         screenStream,
         audioStream,
         cameraStream,
+        systemAudioStream,
         screenDimensions,
         cameraDimensions,
+        sourceType,
+        setSourceType,
         toggleScreen,
+        toggleSystemAudio,
         toggleMic,
         toggleCamera,
         stopAll,
         changeCamera,
-        changeMic
+        changeMic,
     };
 };

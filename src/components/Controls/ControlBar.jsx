@@ -46,7 +46,11 @@ export const ControlBar = ({
     youtubeOpen,
     setYoutubeOpen,
     filterPanelOpen,
-    setFilterPanelOpen
+    setFilterPanelOpen,
+    sourceType,
+    setSourceType,
+    toggleSystemAudio,
+    systemAudioStream,
 }) => {
     const [activePanel, setActivePanel] = React.useState(null); // 'camera', 'bg', 'quality', 'format'
     const supportedFormats = React.useMemo(() => getSupportedFormats(), []);
@@ -210,9 +214,26 @@ export const ControlBar = ({
 
             <div className="control-bar">
                 <div className="source-toggles">
-                    <button className={`btn-pill ${screenStream ? 'active' : ''}`}
-                        onClick={toggleScreen} disabled={isRecording}>
-                        {screenStream ? '● Screen' : 'Screen'}
+                    <div className="source-selector">
+                        <button className={`btn-pill ${screenStream ? 'active' : ''}`}
+                            onClick={() => toggleScreen(sourceType)} disabled={isRecording}>
+                            {screenStream ? '● ' : ''}{sourceType === 'window' ? 'Window' : sourceType === 'tab' ? 'Tab' : 'Screen'}
+                        </button>
+                        {!isRecording && (
+                            <select className="source-select" value={sourceType}
+                                onChange={(e) => setSourceType(e.target.value)}
+                                disabled={isRecording}>
+                                <option value="screen">Full Screen</option>
+                                <option value="window">Window</option>
+                                <option value="tab">Browser Tab</option>
+                            </select>
+                        )}
+                    </div>
+                    <div className="vertical-divider" style={{ width: '1px', background: 'var(--glass-border)', margin: '0 0.2rem' }}></div>
+                    <button className={`btn-pill ${systemAudioStream ? 'active' : ''}`}
+                        onClick={toggleSystemAudio} disabled={isRecording}
+                        title="Capture desktop/system audio">
+                        {systemAudioStream ? '● Sys Audio' : 'Sys Audio'}
                     </button>
                     <div className="grid">
                         <button className={`btn-pill ${cameraStream ? 'active' : ''}`}
