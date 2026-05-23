@@ -1,63 +1,153 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
-const isElectron = () => typeof window !== 'undefined' && window.electronAPI?.isElectron;
+// Google Identity Services + YouTube Data API v3
+// Works in any browser — no Electron needed
+// User provides their own Google Cloud OAuth Client ID
+
+const YOUTUBE_UPLOAD_URL = 'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status';
+const YOUTUBE_CHANNEL_URL = 'https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true';
+const SCOPES = 'https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube';
 
 export const useYouTube = () => {
-    const [authenticated, setAuthenticated] = useState(false);
-    const [tokens, setTokens] = useState(null);
-    const [uploading, setUploading] = useState(false);
-    const [progress, setProgress] = useState(0);
-    const [error, setError] = useState(null);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [channelName, setChannelName] = useState('');
+    const [clientId, setClientIdState] = useState(() => localStorage.getItem('yt_client_id') || '');
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const tokenRef = useRef(null);
 
-    const authenticate = useCallback(async () => {
-        try {
-            if (!isElectron()) {
-                setError('YouTube upload requires the desktop app. Use Electron version.');
-                return false;
-            }
-            const result = await window.electronAPI.youtubeAuth();
-            if (result.success) {
-                setTokens(result.tokens);
-                setAuthenticated(true);
-                setError(null);
-                return true;
-            }
-            setError(result.error);
-            return false;
-        } catch (err) {
-            setError(err.message);
-            return false;
-        }
+    const setClientId = useCallback((id) => {
+        setClientIdState(id);
+        localStorage.setItem('yt_client_id', id);
     }, []);
 
-    const upload = useCallback(async (filePath, metadata) => {
-        if (!tokens) {
-            const authResult = await authenticate();
-            if (!authResult) return null;
-        }
-        setUploading(true);
-        setProgress(0);
-        setError(null);
+    const loadGis = useCallback(() => {
+        return new Promise((resolve, reject) => {
+            if (window.google?.accounts?.oauth2) { resolve(); return; }
+            const script = document.createElement('script');
+            script.src = 'https://accounts.google.com/gsi/client';
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Failed to load Google Identity Services'));
+            document.head.appendChild(script);
+        });
+    }, []);
+
+    const authenticate = useCallback(async () => {
+        if (!clientId) return false;
         try {
-            if (!isElectron()) {
-                setError('YouTube upload requires the desktop app.');
-                return null;
-            }
-            setProgress(10);
-            const result = await window.electronAPI.youtubeUpload(filePath, metadata, tokens);
-            setProgress(100);
-            if (result.success) {
-                return result;
-            }
-            setError(result.error);
-            return null;
-        } catch (err) {
-            setError(err.message);
-            return null;
-        } finally {
-            setUploading(false);
+            await loadGis();
+        } catch {
+            return false;
         }
-    }, [tokens, authenticate]);
+
+        return new Promise((resolve) => {
+            const tokenClient = window.google.accounts.oauth2.initTokenClient({
+                client_id: clientId,
+                scope: SCOPES,
+                callback: async (tokenResponse) => {
+                    if (tokenResponse.error) {
+                        resolve(false);
+                        return;
+                    }
+                    tokenRef.current = tokenResponse.access_token;
+                    setIsAuthenticated(true);
+
+                    try {
+                        const res = await fetch(YOUTUBE_CHANNEL_URL, {
+                            headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+                        });
+                        const data = await res.json();
+                        if (data.items?.[0]?.snippet?.title) {
+                            setChannelName(data.items[0].snippet.title);
+                        }
+                    } catch { /* silent */ }
+                    resolve(true);
+                },
+            });
+            tokenClient.requestAccessToken();
+        });
+    }, [clientId, loadGis]);
+
+    const disconnect = useCallback(() => {
+        if (tokenRef.current) {
+            try { window.google?.accounts?.oauth2?.revoke(tokenRef.current); } catch {}
+        }
+        tokenRef.current = null;
+        setIsAuthenticated(false);
+        setChannelName('');
+    }, []);
+
+    const uploadVideo = useCallback(async (blob, metadata) => {
+        if (!tokenRef.current || !blob) return null;
+
+        setIsUploading(true);
+        setUploadProgress(0);
+
+        try {
+            const videoMetadata = {
+                snippet: {
+                    title: metadata.title || 'ScreenStudio Recording',
+                    description: metadata.description || 'Recorded with ScreenStudio',
+                    tags: metadata.tags || ['screen recording', 'screenstudio'],
+                    categoryId: metadata.categoryId || '22',
+                },
+                status: {
+                    privacyStatus: metadata.privacy || 'unlisted',
+                },
+            };
+
+            // Step 1: Initiate resumable upload session
+            const initRes = await fetch(YOUTUBE_UPLOAD_URL, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${tokenRef.current}`,
+                    'Content-Type': 'application/json',
+                    'X-Upload-Content-Type': blob.type || 'video/webm',
+                    'X-Upload-Content-Length': String(blob.size),
+                },
+                body: JSON.stringify(videoMetadata),
+            });
+
+            if (!initRes.ok) {
+                const errBody = await initRes.text().catch(() => '');
+                throw new Error(`Upload init failed: ${initRes.status} ${errBody}`);
+            }
+
+            const uploadUrl = initRes.headers.get('Location');
+            if (!uploadUrl) throw new Error('No upload URL returned');
+
+            // Step 2: Upload video blob with progress tracking
+            const result = await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open('PUT', uploadUrl, true);
+                xhr.setRequestHeader('Content-Type', blob.type || 'video/webm');
+
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        setUploadProgress(Math.round((e.loaded / e.total) * 100));
+                    }
+                };
+
+                xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        try { resolve(JSON.parse(xhr.responseText)); }
+                        catch { reject(new Error('Invalid upload response')); }
+                    } else {
+                        reject(new Error(`Upload failed: ${xhr.status}`));
+                    }
+                };
+                xhr.onerror = () => reject(new Error('Network error during upload'));
+                xhr.send(blob);
+            });
+
+            setUploadProgress(100);
+            return { success: true, url: `https://youtube.com/watch?v=${result.id}`, videoId: result.id };
+        } catch (err) {
+            return { success: false, error: err.message };
+        } finally {
+            setIsUploading(false);
+        }
+    }, []);
 
     const generateMetadata = useCallback(async (ollamaChat, transcription) => {
         try {
@@ -81,7 +171,6 @@ Rules:
             ]);
 
             if (response?.message?.content) {
-                // Extract JSON from response
                 const jsonMatch = response.message.content.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
                     return JSON.parse(jsonMatch[0]);
@@ -94,13 +183,10 @@ Rules:
     }, []);
 
     return {
-        authenticated,
-        tokens,
-        uploading,
-        progress,
-        error,
-        authenticate,
-        upload,
+        isAuthenticated, channelName,
+        clientId, setClientId,
+        authenticate, disconnect,
+        uploadVideo, isUploading, uploadProgress,
         generateMetadata,
     };
 };

@@ -75,7 +75,7 @@ const ScreenRecorder = () => {
 
     const audioLevel = useAudioLevel(audioStream);
     const { drawCursorFx } = useCursorFx(canvasRef, cursorFxEnabled);
-    const annotation = useAnnotation(annotationEnabled);
+    const annotation = useAnnotation(canvasRef, annotationEnabled);
     const { applyZoom, restoreZoom } = useZoom(canvasRef, zoomEnabled);
     const ai = useAI();
     const youtube = useYouTube();

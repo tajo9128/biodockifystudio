@@ -1,5 +1,4 @@
 import React, { useState, useCallback } from 'react';
-import { useYouTube } from '../../hooks/useYouTube';
 import './YouTubeUploadModal.css';
 
 const CATEGORIES = [
@@ -18,35 +17,23 @@ const PRIVACY_OPTIONS = [
     { value: 'private', label: 'Private' },
 ];
 
-export const YouTubeUploadModal = ({ isOpen, onClose, filePath, ollamaChat }) => {
-    const { authenticated, uploading, progress, error, authenticate, upload, generateMetadata } = useYouTube();
+export const YouTubeUploadModal = ({
+    isOpen, onClose,
+    onUpload,
+    isAuthenticated, channelName,
+    clientId, onSetClientId,
+    onAuthenticate, onDisconnect,
+    isUploading, uploadProgress,
+}) => {
     const [title, setTitle] = useState('ScreenStudio Recording');
     const [description, setDescription] = useState('Recorded with ScreenStudio - Free Screen Recorder');
     const [tags, setTags] = useState('screen recording, screenstudio, tutorial');
     const [privacy, setPrivacy] = useState('unlisted');
     const [categoryId, setCategoryId] = useState('22');
-    const [generating, setGenerating] = useState(false);
     const [result, setResult] = useState(null);
-
-    const handleGenerateAI = useCallback(async () => {
-        if (!ollamaChat) return;
-        setGenerating(true);
-        try {
-            const metadata = await generateMetadata(ollamaChat);
-            if (metadata) {
-                if (metadata.title) setTitle(metadata.title);
-                if (metadata.description) setDescription(metadata.description);
-                if (metadata.tags) setTags(metadata.tags.join(', '));
-                if (metadata.categoryId) setCategoryId(metadata.categoryId);
-            }
-        } catch {
-            // Silent fail
-        }
-        setGenerating(false);
-    }, [ollamaChat, generateMetadata]);
+    const [editClientId, setEditClientId] = useState('');
 
     const handleUpload = useCallback(async () => {
-        if (!filePath) return;
         const metadata = {
             title,
             description,
@@ -54,15 +41,18 @@ export const YouTubeUploadModal = ({ isOpen, onClose, filePath, ollamaChat }) =>
             privacy,
             categoryId,
         };
-        const res = await upload(filePath, metadata);
+        const res = await onUpload(metadata);
         if (res?.success) {
             setResult(res);
         }
-    }, [filePath, title, description, tags, privacy, categoryId, upload]);
+    }, [title, description, tags, privacy, categoryId, onUpload]);
 
-    const handleAuth = useCallback(async () => {
-        await authenticate();
-    }, [authenticate]);
+    const handleSaveClientId = useCallback(() => {
+        if (editClientId.trim()) {
+            onSetClientId(editClientId.trim());
+            setEditClientId('');
+        }
+    }, [editClientId, onSetClientId]);
 
     if (!isOpen) return null;
 
@@ -75,22 +65,42 @@ export const YouTubeUploadModal = ({ isOpen, onClose, filePath, ollamaChat }) =>
                 </div>
 
                 <div className="yt-modal-body">
-                    {!authenticated ? (
+                    {!clientId ? (
+                        <div className="yt-auth-section">
+                            <p>Enter your Google Cloud OAuth Client ID to enable YouTube upload.</p>
+                            <p className="yt-auth-note">
+                                Create one at console.cloud.google.com &gt; APIs &gt; Credentials &gt; OAuth 2.0 Client ID.
+                                Add your app URL as an authorized JavaScript origin.
+                            </p>
+                            <div style={{ display: 'flex', gap: '0.5rem', margin: '1rem 0' }}>
+                                <input
+                                    className="yt-input"
+                                    placeholder="Client ID (xxx.apps.googleusercontent.com)"
+                                    value={editClientId}
+                                    onChange={e => setEditClientId(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleSaveClientId()}
+                                />
+                                <button className="btn btn-primary" onClick={handleSaveClientId}>
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+                    ) : !isAuthenticated ? (
                         <div className="yt-auth-section">
                             <p>Connect your YouTube account to upload recordings directly from ScreenStudio.</p>
                             <p className="yt-auth-note">
-                                {window.electronAPI?.isElectron
-                                    ? 'A browser window will open for you to sign in to Google.'
-                                    : 'YouTube upload requires the desktop app. Download ScreenStudio Desktop.'}
+                                A popup will open for you to sign in to Google and authorize YouTube access.
                             </p>
-                            <button
-                                className="btn btn-primary"
-                                onClick={handleAuth}
-                                disabled={!window.electronAPI?.isElectron}
-                            >
+                            <button className="btn btn-primary" onClick={onAuthenticate}>
                                 Connect YouTube Account
                             </button>
-                            {error && <p className="yt-error">{error}</p>}
+                            <p className="yt-auth-note" style={{ marginTop: '0.75rem' }}>
+                                Client ID: {clientId.slice(0, 20)}...
+                                <button className="btn-link" onClick={() => onSetClientId('')}
+                                    style={{ marginLeft: '0.5rem' }}>
+                                    Change
+                                </button>
+                            </p>
                         </div>
                     ) : result ? (
                         <div className="yt-success-section">
@@ -98,23 +108,19 @@ export const YouTubeUploadModal = ({ isOpen, onClose, filePath, ollamaChat }) =>
                             <a href={result.url} target="_blank" rel="noopener" className="yt-link">
                                 {result.url}
                             </a>
-                            <button className="btn btn-primary" onClick={onClose}>Done</button>
+                            <button className="btn btn-primary" onClick={() => { setResult(null); onClose(); }}>
+                                Done
+                            </button>
                         </div>
                     ) : (
                         <>
+                            <div className="yt-channel-bar">
+                                <span>Connected as <b>{channelName}</b></span>
+                                <button className="btn-link" onClick={onDisconnect}>Disconnect</button>
+                            </div>
+
                             <div className="yt-field">
-                                <div className="yt-field-header">
-                                    <label>Title</label>
-                                    {ollamaChat && (
-                                        <button
-                                            className="btn-pill yt-ai-btn"
-                                            onClick={handleGenerateAI}
-                                            disabled={generating}
-                                        >
-                                            {generating ? 'Generating...' : 'AI Generate'}
-                                        </button>
-                                    )}
-                                </div>
+                                <label>Title</label>
                                 <input
                                     className="yt-input"
                                     value={title}
@@ -171,25 +177,23 @@ export const YouTubeUploadModal = ({ isOpen, onClose, filePath, ollamaChat }) =>
                                 </div>
                             </div>
 
-                            {uploading && (
+                            {isUploading && (
                                 <div className="yt-progress">
                                     <div className="yt-progress-bar">
-                                        <div className="yt-progress-fill" style={{ width: `${progress}%` }} />
+                                        <div className="yt-progress-fill" style={{ width: `${uploadProgress}%` }} />
                                     </div>
-                                    <span>{progress}%</span>
+                                    <span>{uploadProgress}%</span>
                                 </div>
                             )}
-
-                            {error && <p className="yt-error">{error}</p>}
 
                             <div className="yt-actions">
                                 <button className="btn btn-outline" onClick={onClose}>Cancel</button>
                                 <button
                                     className="btn btn-primary"
                                     onClick={handleUpload}
-                                    disabled={uploading || !title.trim()}
+                                    disabled={isUploading || !title.trim()}
                                 >
-                                    {uploading ? 'Uploading...' : 'Upload'}
+                                    {isUploading ? 'Uploading...' : 'Upload'}
                                 </button>
                             </div>
                         </>
