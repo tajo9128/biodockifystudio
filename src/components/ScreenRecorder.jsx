@@ -26,6 +26,7 @@ import { FilterPanel } from './Filters/FilterPanel';
 import { applyFilters } from '../utils/FilterEngine';
 import { Timeline } from './Timeline/Timeline';
 import { useTimeline } from '../hooks/useTimeline';
+import { useOverlays } from '../hooks/useOverlays';
 import { WelcomeModal } from './WelcomeModal/WelcomeModal';
 
 const QUALITY_PRESETS = {
@@ -79,6 +80,7 @@ const ScreenRecorder = () => {
     const ai = useAI();
     const youtube = useYouTube();
     const timeline = useTimeline();
+    const overlays = useOverlays();
     const [showTimeline, setShowTimeline] = useState(false);
 
     const showToast = useCallback((title, message, type = 'info') => {
@@ -273,8 +275,9 @@ const ScreenRecorder = () => {
         restoreZoom(ctx);
         drawCursorFx(ctx, canvas.width, canvas.height);
         annotation.drawAnnotations(ctx);
+        overlays.drawOverlays(ctx, 0);
         applyFilters(ctx, canvas, activeFilters);
-    }, [cameraStream, screenStream, activeBg, webcamScale, screenScale, webcamShape, recordingQuality, webcamOnly, annotationEnabled, zoomEnabled, drawCursorFx, annotation, applyZoom, restoreZoom, activeFilters]);
+    }, [cameraStream, screenStream, activeBg, webcamScale, screenScale, webcamShape, recordingQuality, webcamOnly, annotationEnabled, zoomEnabled, drawCursorFx, annotation, applyZoom, restoreZoom, activeFilters, overlays]);
 
     const launchLoop = useCallback(() => {
         const isCanvasNeeded = cameraStream || activeBg !== 'none' || screenScale < 1.0 || recordingQuality !== 'native' || webcamOnly || cursorFxEnabled || annotationEnabled || zoomEnabled;
