@@ -40,7 +40,9 @@ export const ControlBar = ({
     annotationEnabled,
     setAnnotationEnabled,
     zoomEnabled,
-    setZoomEnabled
+    setZoomEnabled,
+    chatOpen,
+    setChatOpen
 }) => {
     const [activePanel, setActivePanel] = React.useState(null); // 'camera', 'bg', 'quality', 'format'
     const supportedFormats = React.useMemo(() => getSupportedFormats(), []);
@@ -343,6 +345,11 @@ export const ControlBar = ({
                     <button className={`btn-pill ${zoomEnabled ? 'active' : ''}`}
                         onClick={() => setZoomEnabled(!zoomEnabled)}>
                         🔍 Zoom
+                    </button>
+                    <div className="vertical-divider" style={{ width: '1px', background: 'var(--glass-border)', margin: '0 0.2rem' }}></div>
+                    <button className={`btn-pill ${chatOpen ? 'active' : ''}`}
+                        onClick={() => setChatOpen(!chatOpen)}>
+                        🤖 AI
                     </button>
                 </div>
 

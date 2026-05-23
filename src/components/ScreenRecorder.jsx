@@ -18,6 +18,9 @@ import { Toast } from './Notifications/Toast';
 import { VideoPlayerModal } from './Modals/VideoPlayerModal';
 import SaveRecordingModal from './Modals/SaveRecordingModal';
 import { AnnotationToolbar } from './Annotation/AnnotationToolbar';
+import { ChatPanel } from './Chat/ChatPanel';
+import { useAI } from '../hooks/useAI';
+import { CommandExecutor } from '../utils/CommandExecutor';
 
 const QUALITY_PRESETS = {
     'native': { width: null, height: null, label: 'Native Source', bitrate: 15000000 },
@@ -55,14 +58,12 @@ const ScreenRecorder = () => {
     const [webcamOnly, setWebcamOnly] = useState(false);
     const [annotationEnabled, setAnnotationEnabled] = useState(false);
     const [zoomEnabled, setZoomEnabled] = useState(false);
+    const [chatOpen, setChatOpen] = useState(false);
     const audioLevel = useAudioLevel(audioStream);
     const { drawCursorFx } = useCursorFx(canvasRef, cursorFxEnabled);
-    const {
-        tool, setTool, color, setColor, strokeWidth, setStrokeWidth,
-        drawAnnotations, handleMouseDown: annotationMouseDown, handleMouseMove: annotationMouseMove,
-        handleMouseUp: annotationMouseUp, undo, redo, clearAnnotations, canUndo, canRedo
-    } = useAnnotation(annotationEnabled);
+    const annotation = useAnnotation(annotationEnabled);
     const { applyZoom, restoreZoom } = useZoom(canvasRef, zoomEnabled);
+    const ai = useAI();
 
     const showToast = useCallback((title, message, type = 'info') => {
         setToast({ title, message, type });
@@ -100,6 +101,31 @@ const ScreenRecorder = () => {
         mimeType: EXPORT_FORMATS.find(f => f.id === recordingFormat)?.mimeType,
         onComplete: handleRecordingComplete
     });
+
+    // CommandExecutor for AI commands
+    const commandExecutor = useRef(null);
+    useEffect(() => {
+        commandExecutor.current = new CommandExecutor({
+            showToast,
+            setCursorFxEnabled,
+            setZoomEnabled,
+            setAnnotationEnabled,
+            setRecordingQuality,
+            setRecordingFormat,
+            startRecording: startMediaRecording,
+            stopRecording,
+            pauseRecording,
+            resumeRecording,
+            setTool: annotation.setTool,
+        });
+    });
+
+    const handleAICommand = useCallback(async (input) => {
+        const command = await ai.sendMessage(input);
+        if (command) {
+            commandExecutor.current?.execute(command);
+        }
+    }, [ai, startMediaRecording, stopRecording, pauseRecording, resumeRecording, annotation]);
 
     const handleSaveRecording = async (blob, fileName) => {
         if (directoryHandle) {
@@ -590,6 +616,8 @@ const ScreenRecorder = () => {
                 setAnnotationEnabled={setAnnotationEnabled}
                 zoomEnabled={zoomEnabled}
                 setZoomEnabled={setZoomEnabled}
+                chatOpen={chatOpen}
+                setChatOpen={setChatOpen}
             />
 
             <div className="mode-info">
@@ -640,6 +668,17 @@ const ScreenRecorder = () => {
                 mimeType={pendingRecording?.mimeType}
                 onSave={handleSaveRecording}
                 onDiscard={() => setPendingRecording(null)}
+            />
+
+            <ChatPanel
+                isOpen={chatOpen}
+                onClose={() => setChatOpen(false)}
+                messages={ai.messages}
+                isProcessing={ai.isProcessing}
+                onSend={handleAICommand}
+                onClear={ai.clearMessages}
+                apiKey={ai.apiKey}
+                onApiKeyChange={ai.setApiKey}
             />
         </div>
     );
