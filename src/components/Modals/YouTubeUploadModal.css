@@ -1,0 +1,44 @@
+.yt-modal {
+    max-width: 520px;
+    width: 90vw;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+.yt-modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 1rem 1.25rem; border-bottom: 1px solid var(--glass-border, rgba(255,255,255,0.1));
+}
+.yt-modal-header h2 { margin: 0; font-size: 1.1rem; color: var(--text-main, #e2e8f0); }
+.yt-modal-body { padding: 1.25rem; }
+.yt-auth-section { text-align: center; padding: 2rem 1rem; }
+.yt-auth-section p { color: var(--text-muted, #94a3b8); margin-bottom: 1rem; font-size: 0.9rem; }
+.yt-auth-note { font-size: 0.8rem; opacity: 0.7; }
+.yt-success-section { text-align: center; padding: 2rem 1rem; }
+.yt-success-icon { font-size: 1.5rem; margin-bottom: 1rem; color: #22c55e; }
+.yt-link { color: var(--primary, #8b5cf6); word-break: break-all; display: block; margin-bottom: 1.5rem; }
+.yt-field { margin-bottom: 1rem; }
+.yt-field label { display: block; font-size: 0.8rem; color: var(--text-muted, #94a3b8); margin-bottom: 0.3rem; }
+.yt-field-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem; }
+.yt-input, .yt-textarea, .yt-select {
+    width: 100%; background: var(--glass, rgba(255,255,255,0.05));
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.1));
+    border-radius: 8px; color: var(--text-main, #e2e8f0);
+    padding: 0.5rem 0.75rem; font-size: 0.85rem; font-family: inherit;
+    box-sizing: border-box;
+}
+.yt-textarea { resize: vertical; }
+.yt-input:focus, .yt-textarea:focus, .yt-select:focus {
+    outline: none; border-color: var(--primary, #8b5cf6);
+}
+.yt-char-count { font-size: 0.7rem; color: var(--text-muted, #94a3b8); float: right; margin-top: 0.2rem; }
+.yt-row { display: flex; gap: 1rem; }
+.yt-field-half { flex: 1; }
+.yt-progress { margin: 1rem 0; }
+.yt-progress-bar {
+    height: 6px; background: var(--glass, rgba(255,255,255,0.1));
+    border-radius: 3px; overflow: hidden; margin-bottom: 0.3rem;
+}
+.yt-progress-fill { height: 100%; background: var(--primary, #8b5cf6); transition: width 0.3s; }
+.yt-error { color: #ef4444; font-size: 0.8rem; margin: 0.5rem 0; }
+.yt-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; }
+.yt-ai-btn { font-size: 0.7rem; padding: 0.2rem 0.5rem; }

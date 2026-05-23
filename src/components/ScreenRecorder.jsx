@@ -8,9 +8,10 @@ import { useAudioLevel } from '../hooks/useAudioLevel';
 import { useCursorFx } from '../hooks/useCursorFx';
 import { useAnnotation } from '../hooks/useAnnotation';
 import { useZoom } from '../hooks/useZoom';
+import { useAI } from '../hooks/useAI';
+import { useOllama } from '../hooks/useOllama';
 import { EXPORT_FORMATS, getDefaultFormat } from '../constants/formats';
 
-// UI Components
 import { ControlBar } from './Controls/ControlBar';
 import { HistorySidebar } from './Sidebar/HistorySidebar';
 import { PreviewStage } from './Preview/PreviewStage';
@@ -19,7 +20,6 @@ import { VideoPlayerModal } from './Modals/VideoPlayerModal';
 import SaveRecordingModal from './Modals/SaveRecordingModal';
 import { AnnotationToolbar } from './Annotation/AnnotationToolbar';
 import { ChatPanel } from './Chat/ChatPanel';
-import { useAI } from '../hooks/useAI';
 import { CommandExecutor } from '../utils/CommandExecutor';
 
 const QUALITY_PRESETS = {
@@ -47,11 +47,11 @@ const ScreenRecorder = () => {
     const [activeBg, setActiveBg] = useState('none');
     const [screenScale, setScreenScale] = useState(1.0);
     const [recordingQuality, setRecordingQuality] = useState('1080p');
+    const [recordingFormat, setRecordingFormat] = useState(getDefaultFormat());
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [toast, setToast] = useState(null);
     const [highlightedFile, setHighlightedFile] = useState(null);
     const [pendingRecording, setPendingRecording] = useState(null);
-    const [recordingFormat, setRecordingFormat] = useState(getDefaultFormat());
     const [countdown, setCountdown] = useState(null);
     const [elapsedTime, setElapsedTime] = useState(0);
     const [cursorFxEnabled, setCursorFxEnabled] = useState(false);
@@ -63,7 +63,8 @@ const ScreenRecorder = () => {
     const { drawCursorFx } = useCursorFx(canvasRef, cursorFxEnabled);
     const annotation = useAnnotation(annotationEnabled);
     const { applyZoom, restoreZoom } = useZoom(canvasRef, zoomEnabled);
-    const ai = useAI();
+    const ollama = useOllama();
+    const ai = useAI(ollama);
 
     const showToast = useCallback((title, message, type = 'info') => {
         setToast({ title, message, type });
@@ -85,7 +86,7 @@ const ScreenRecorder = () => {
 
     const handleRecordingComplete = useCallback((blob, mimeType) => {
         if (!blob) {
-            showToast('Recording Failed', 'No video data was captured. If your mic is disabled, try enabling it.', 'error');
+            showToast('Recording Failed', 'No video data was captured.', 'error');
             return;
         }
         setPendingRecording({ blob, mimeType });
@@ -165,14 +166,12 @@ const ScreenRecorder = () => {
         setPendingRecording(null);
     };
 
-    // Position State (using Ref for 0-lag updates)
     const webcamPos = useRef({ x: 20, y: 410 });
     const isDragging = useRef(false);
     const dragOffset = useRef({ x: 0, y: 0 });
     const countdownTimerRef = useRef(null);
     const elapsedTimerRef = useRef(null);
 
-    // Initialize hidden video elements
     useEffect(() => {
         screenVideoRef.current = document.createElement('video');
         screenVideoRef.current.muted = true;
@@ -187,7 +186,6 @@ const ScreenRecorder = () => {
         return () => handleStopAll();
     }, []);
 
-    // Recording timer
     useEffect(() => {
         if (isRecording && !isPaused) {
             elapsedTimerRef.current = setInterval(() => {
@@ -204,7 +202,6 @@ const ScreenRecorder = () => {
         };
     }, [isRecording, isPaused]);
 
-    // Reset timer when recording stops
     useEffect(() => {
         if (!isRecording) setElapsedTime(0);
     }, [isRecording]);
@@ -227,7 +224,6 @@ const ScreenRecorder = () => {
 
     const [currentDimensions, setCurrentDimensions] = useState({ width: 0, height: 0 });
 
-    // 1. Sync Canvas Dimensions
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -265,7 +261,6 @@ const ScreenRecorder = () => {
         }
     }, [screenStream, cameraStream, activeBg, screenScale, recordingQuality, screenDimensions, cameraDimensions]);
 
-    // 2. High-Performance Render Function
     const renderFrame = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -277,7 +272,6 @@ const ScreenRecorder = () => {
         const bubbleSize = canvas.height * webcamScale;
         const { x, y } = webcamPos.current;
 
-        // Apply zoom transform (wraps screen+webcam drawing)
         applyZoom(ctx, canvas.width, canvas.height);
 
         // Background
@@ -292,14 +286,11 @@ const ScreenRecorder = () => {
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
 
-        // Webcam-only mode: fill canvas with webcam
+        // Webcam-only mode
         if (webcamOnly && cameraStream && cameraVideoRef.current.readyState >= 2) {
             const webcamVideo = cameraVideoRef.current;
-            const vWidth = webcamVideo.videoWidth;
-            const vHeight = webcamVideo.videoHeight;
-            const vAspect = vWidth / vHeight;
+            const vAspect = webcamVideo.videoWidth / webcamVideo.videoHeight;
             const cAspect = canvas.width / canvas.height;
-
             let drawWidth, drawHeight;
             if (vAspect > cAspect) {
                 drawHeight = canvas.height;
@@ -308,18 +299,13 @@ const ScreenRecorder = () => {
                 drawWidth = canvas.width;
                 drawHeight = canvas.width / vAspect;
             }
-            const dx = (canvas.width - drawWidth) / 2;
-            const dy = (canvas.height - drawHeight) / 2;
-            ctx.drawImage(webcamVideo, dx, dy, drawWidth, drawHeight);
+            ctx.drawImage(webcamVideo, (canvas.width - drawWidth) / 2, (canvas.height - drawHeight) / 2, drawWidth, drawHeight);
         } else {
-            // Normal mode: screen + webcam overlay
+            // Screen
             if (screenStream && screenVideoRef.current.readyState >= 2) {
                 const videoData = screenVideoRef.current;
-                const vWidth = videoData.videoWidth;
-                const vHeight = videoData.videoHeight;
-                const vAspect = vWidth / vHeight;
+                const vAspect = videoData.videoWidth / videoData.videoHeight;
                 const cAspect = canvas.width / canvas.height;
-
                 let drawWidth, drawHeight;
                 if (vAspect > cAspect) {
                     drawWidth = canvas.width;
@@ -328,12 +314,10 @@ const ScreenRecorder = () => {
                     drawHeight = canvas.height;
                     drawWidth = canvas.height * vAspect;
                 }
-
                 const sw = drawWidth * screenScale;
                 const sh = drawHeight * screenScale;
                 const sx = (canvas.width - sw) / 2;
                 const sy = (canvas.height - sh) / 2;
-
                 if (screenScale < 1.0) {
                     ctx.save();
                     ctx.beginPath();
@@ -346,12 +330,10 @@ const ScreenRecorder = () => {
                 }
             }
 
+            // Webcam overlay
             if (cameraStream && cameraVideoRef.current.readyState >= 2) {
                 const webcamVideo = cameraVideoRef.current;
-                const vWidth = webcamVideo.videoWidth;
-                const vHeight = webcamVideo.videoHeight;
-                const vAspect = vWidth / vHeight;
-
+                const vAspect = webcamVideo.videoWidth / webcamVideo.videoHeight;
                 let dw, dh, dx, dy;
                 if (vAspect > 1) {
                     dw = bubbleSize * vAspect; dh = bubbleSize;
@@ -360,7 +342,6 @@ const ScreenRecorder = () => {
                     dw = bubbleSize; dh = bubbleSize / vAspect;
                     dx = x; dy = y - (dh - bubbleSize) / 2;
                 }
-
                 if (webcamShape !== 'square') {
                     ctx.save();
                     ctx.beginPath();
@@ -378,15 +359,10 @@ const ScreenRecorder = () => {
             }
         }
 
-        // Restore zoom before drawing overlays at normal scale
         restoreZoom(ctx);
-
-        // Cursor effects overlay
         drawCursorFx(ctx, canvas.width, canvas.height);
-
-        // Annotation overlay
-        drawAnnotations(ctx);
-    }, [cameraStream, screenStream, activeBg, webcamScale, screenScale, webcamShape, recordingQuality, webcamOnly, annotationEnabled, zoomEnabled, drawCursorFx, drawAnnotations, restoreZoom]);
+        annotation.drawAnnotations(ctx);
+    }, [cameraStream, screenStream, activeBg, webcamScale, screenScale, webcamShape, recordingQuality, webcamOnly, annotationEnabled, zoomEnabled, drawCursorFx, annotation, applyZoom, restoreZoom]);
 
     const launchLoop = useCallback(() => {
         const isCanvasNeeded = cameraStream || activeBg !== 'none' || screenScale < 1.0 || recordingQuality !== 'native' || webcamOnly || cursorFxEnabled || annotationEnabled || zoomEnabled;
@@ -398,13 +374,9 @@ const ScreenRecorder = () => {
 
         if (isCanvasNeeded) {
             workerRef.current = new Worker(new URL('../workers/heartbeat.worker.js', import.meta.url), { type: 'module' });
-
             workerRef.current.onmessage = (e) => {
-                if (e.data.action === 'tick') {
-                    renderFrame();
-                }
+                if (e.data.action === 'tick') renderFrame();
             };
-
             workerRef.current.postMessage({ action: 'setFps', fps: 30 });
             workerRef.current.postMessage({ action: 'start' });
         }
@@ -474,9 +446,7 @@ const ScreenRecorder = () => {
     }, [setDirectoryHandle, setIsHandleAuthorized]);
 
     useEffect(() => {
-        if (isHistoryOpen && directoryHandle) {
-            syncLibrary(directoryHandle);
-        }
+        if (isHistoryOpen && directoryHandle) syncLibrary(directoryHandle);
     }, [isHistoryOpen, directoryHandle, syncLibrary]);
 
     const startRecording = useCallback(() => {
@@ -497,25 +467,17 @@ const ScreenRecorder = () => {
         }, 1000);
     }, [isRecording, countdown, startMediaRecording]);
 
-    // Keyboard shortcuts
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
             if (e.code === 'Space') {
                 e.preventDefault();
-                if (isRecording) {
-                    stopRecording();
-                } else if (countdown === null) {
-                    startRecording();
-                }
+                if (isRecording) stopRecording();
+                else if (countdown === null) startRecording();
             } else if (e.code === 'KeyP' && isRecording) {
                 e.preventDefault();
-                if (isPaused) {
-                    resumeRecording();
-                } else {
-                    pauseRecording();
-                }
+                if (isPaused) resumeRecording();
+                else pauseRecording();
             } else if (e.code === 'Escape' && countdown !== null) {
                 e.preventDefault();
                 if (countdownTimerRef.current) {
@@ -525,7 +487,6 @@ const ScreenRecorder = () => {
                 setCountdown(null);
             }
         };
-
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isRecording, isPaused, countdown, startRecording, stopRecording, pauseRecording, resumeRecording]);
@@ -658,10 +619,7 @@ const ScreenRecorder = () => {
                 onClose={() => setSelectedVideoUrl(null)}
             />
 
-            <Toast
-                toast={toast}
-                onClose={() => setToast(null)}
-            />
+            <Toast toast={toast} onClose={() => setToast(null)} />
 
             <SaveRecordingModal
                 blob={pendingRecording?.blob}
@@ -679,6 +637,12 @@ const ScreenRecorder = () => {
                 onClear={ai.clearMessages}
                 apiKey={ai.apiKey}
                 onApiKeyChange={ai.setApiKey}
+                ollamaConnected={ollama.connected}
+                ollamaUrl={ollama.ollamaUrl}
+                onOllamaUrlChange={ollama.setOllamaUrl}
+                ollamaModel={ollama.model}
+                onOllamaModelChange={ollama.setModel}
+                ollamaModels={ollama.models}
             />
         </div>
     );

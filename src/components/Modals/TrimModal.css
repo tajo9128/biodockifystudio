@@ -1,0 +1,97 @@
+.trim-modal {
+    background: var(--bg-card, #1e293b);
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.1));
+    border-radius: 16px;
+    padding: 1.5rem;
+    max-width: 700px;
+    width: 90vw;
+    max-height: 85vh;
+    overflow-y: auto;
+    backdrop-filter: blur(24px);
+}
+
+.trim-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.trim-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--text-main, #e2e8f0);
+}
+
+.trim-preview {
+    margin-bottom: 1rem;
+}
+
+.trim-timeline {
+    margin-bottom: 1.5rem;
+}
+
+.trim-bar {
+    position: relative;
+    height: 40px;
+    background: var(--glass, rgba(255,255,255,0.05));
+    border-radius: 8px;
+    cursor: pointer;
+    margin-bottom: 0.5rem;
+}
+
+.trim-selection {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background: rgba(139, 92, 246, 0.2);
+    border: 2px solid var(--primary, #8b5cf6);
+    border-radius: 4px;
+    pointer-events: none;
+}
+
+.trim-handle {
+    position: absolute;
+    top: 0;
+    width: 12px;
+    height: 100%;
+    background: var(--primary, #8b5cf6);
+    border-radius: 3px;
+    cursor: ew-resize;
+    transform: translateX(-50%);
+    z-index: 2;
+}
+
+.trim-handle:hover {
+    background: #a78bfa;
+}
+
+.trim-playhead {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: white;
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.trim-times {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: var(--text-muted, #94a3b8);
+}
+
+.trim-duration {
+    color: var(--primary, #8b5cf6);
+    font-weight: 600;
+}
+
+.trim-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+}

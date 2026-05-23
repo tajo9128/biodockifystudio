@@ -42,7 +42,9 @@ export const ControlBar = ({
     zoomEnabled,
     setZoomEnabled,
     chatOpen,
-    setChatOpen
+    setChatOpen,
+    youtubeOpen,
+    setYoutubeOpen
 }) => {
     const [activePanel, setActivePanel] = React.useState(null); // 'camera', 'bg', 'quality', 'format'
     const supportedFormats = React.useMemo(() => getSupportedFormats(), []);

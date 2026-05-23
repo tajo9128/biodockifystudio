@@ -1,0 +1,48 @@
+// Layout presets for screen + webcam arrangement
+export const LAYOUT_PRESETS = [
+    {
+        id: 'pip',
+        name: 'Picture-in-Picture',
+        description: 'Screen with webcam overlay (default)',
+        icon: 'PIP',
+        webcamPosition: 'overlay',
+        screenScale: 1.0,
+        webcamScale: 0.25,
+    },
+    {
+        id: 'side-by-side',
+        name: 'Side by Side',
+        description: 'Screen left, webcam right',
+        icon: 'SBS',
+        webcamPosition: 'right',
+        screenScale: 0.65,
+        webcamScale: 0.35,
+    },
+    {
+        id: 'webcam-pip',
+        name: 'Webcam Focus',
+        description: 'Webcam fullscreen, screen small overlay',
+        icon: 'WPIP',
+        webcamPosition: 'fullscreen',
+        screenScale: 0.25,
+        webcamScale: 1.0,
+    },
+    {
+        id: 'screen-only',
+        name: 'Screen Only',
+        description: 'Screen capture only, no webcam',
+        icon: 'SCR',
+        webcamPosition: 'none',
+        screenScale: 1.0,
+        webcamScale: 0,
+    },
+    {
+        id: 'webcam-only',
+        name: 'Webcam Only',
+        description: 'Webcam fullscreen, no screen',
+        icon: 'CAM',
+        webcamPosition: 'fullscreen',
+        screenScale: 0,
+        webcamScale: 1.0,
+    },
+];

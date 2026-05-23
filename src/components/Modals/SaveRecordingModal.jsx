@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const SaveRecordingModal = ({ blob, mimeType, onSave, onDiscard }) => {
+const SaveRecordingModal = ({ blob, mimeType, onSave, onDiscard, onYouTube }) => {
     const [fileName, setFileName] = useState('');
     const [extension, setExtension] = useState('.webm');
 

@@ -1,0 +1,17 @@
+{
+    "name": "ScreenStudio",
+    "short_name": "ScreenStudio",
+    "description": "Free, private screen recorder with webcam overlay and AI editing",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0f172a",
+    "theme_color": "#8b5cf6",
+    "orientation": "any",
+    "icons": [
+        {
+            "src": "/logo.png",
+            "sizes": "any",
+            "type": "image/png"
+        }
+    ]
+}

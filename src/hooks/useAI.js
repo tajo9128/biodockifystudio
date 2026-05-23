@@ -1,16 +1,32 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { COMMAND_PATTERNS, SYSTEM_PROMPT, HELP_MESSAGE } from '../constants/aiPrompts';
 
-export const useAI = () => {
+export const useAI = (ollama = null) => {
     const [messages, setMessages] = useState([
         { role: 'assistant', content: 'Hi! I can help you edit your recording. Try: "trim first 5 seconds" or type "help" for all commands.' }
     ]);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [apiKey, setApiKey] = useState('');
-    const [apiEndpoint, setApiEndpoint] = useState('https://api.openai.com/v1/chat/completions');
-    const [model, setModel] = useState('gpt-4o-mini');
+    const [apiKey, setApiKey] = useState(() => localStorage.getItem('ai_api_key') || '');
+    const [apiEndpoint, setApiEndpoint] = useState(() => localStorage.getItem('ai_api_endpoint') || 'https://api.openai.com/v1/chat/completions');
+    const [model, setModel] = useState(() => localStorage.getItem('ai_model') || 'gpt-4o-mini');
 
-    // Parse command locally (no LLM needed for common commands)
+    // Save settings
+    const updateApiKey = useCallback((key) => {
+        setApiKey(key);
+        localStorage.setItem('ai_api_key', key);
+    }, []);
+
+    const updateApiEndpoint = useCallback((url) => {
+        setApiEndpoint(url);
+        localStorage.setItem('ai_api_endpoint', url);
+    }, []);
+
+    const updateModel = useCallback((m) => {
+        setModel(m);
+        localStorage.setItem('ai_model', m);
+    }, []);
+
+    // Parse command locally (instant, no LLM needed)
     const parseLocal = useCallback((input) => {
         const text = input.trim();
         for (const { patterns, handler } of COMMAND_PATTERNS) {
@@ -22,27 +38,57 @@ export const useAI = () => {
         return null;
     }, []);
 
-    // Call LLM API for complex commands
-    const callLLM = useCallback(async (input) => {
+    // Call Ollama (local, free)
+    const callOllama = useCallback(async (input, recentMessages) => {
+        if (!ollama?.connected) return null;
+
+        try {
+            const ollamaMessages = recentMessages.map(m => ({
+                role: m.role,
+                content: m.content,
+            }));
+            ollamaMessages.push({ role: 'user', content: input });
+
+            const content = await ollama.chat(ollamaMessages, SYSTEM_PROMPT);
+            if (content) {
+                try {
+                    // Try to extract JSON from response
+                    const jsonMatch = content.match(/\{[^}]+\}/);
+                    if (jsonMatch) return JSON.parse(jsonMatch[0]);
+                    return { action: 'chat', message: content };
+                } catch {
+                    return { action: 'chat', message: content };
+                }
+            }
+        } catch {
+            // Ollama failed, fall through
+        }
+        return null;
+    }, [ollama]);
+
+    // Call external API (OpenAI-compatible)
+    const callAPI = useCallback(async (input, recentMessages) => {
         if (!apiKey) return null;
 
         try {
+            const apiMessages = [
+                { role: 'system', content: SYSTEM_PROMPT },
+                ...recentMessages.slice(-6).map(m => ({ role: m.role, content: m.content })),
+                { role: 'user', content: input },
+            ];
+
             const response = await fetch(apiEndpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
+                    'Authorization': `Bearer ${apiKey}`,
                 },
                 body: JSON.stringify({
                     model,
-                    messages: [
-                        { role: 'system', content: SYSTEM_PROMPT },
-                        ...messages.slice(-6).map(m => ({ role: m.role, content: m.content })),
-                        { role: 'user', content: input }
-                    ],
+                    messages: apiMessages,
                     temperature: 0.1,
-                    max_tokens: 200
-                })
+                    max_tokens: 200,
+                }),
             });
 
             if (!response.ok) throw new Error('API request failed');
@@ -52,16 +98,18 @@ export const useAI = () => {
 
             if (content) {
                 try {
-                    return JSON.parse(content);
+                    const jsonMatch = content.match(/\{[^}]+\}/);
+                    if (jsonMatch) return JSON.parse(jsonMatch[0]);
+                    return { action: 'chat', message: content };
                 } catch {
                     return { action: 'chat', message: content };
                 }
             }
-        } catch (err) {
-            // API failed, fall through to local parsing
+        } catch {
+            // API failed
         }
         return null;
-    }, [apiKey, apiEndpoint, model, messages]);
+    }, [apiKey, apiEndpoint, model]);
 
     const sendMessage = useCallback(async (input) => {
         if (!input.trim()) return null;
@@ -71,35 +119,44 @@ export const useAI = () => {
         setIsProcessing(true);
 
         try {
-            // Try local pattern matching first (instant, no download)
+            // 1. Try local pattern matching first (instant)
             let command = parseLocal(input);
 
-            // If no local match and API key exists, try LLM
-            if (!command && apiKey) {
-                command = await callLLM(input);
+            // 2. If no local match, try Ollama (free, local)
+            if (!command && ollama?.connected) {
+                command = await callOllama(input, messages);
             }
 
-            // If still no match, provide helpful response
+            // 3. If no Ollama, try external API
+            if (!command && apiKey) {
+                command = await callAPI(input, messages);
+            }
+
+            // 4. If still nothing, provide helpful response
             if (!command) {
-                if (!apiKey) {
-                    command = {
-                        action: 'chat',
-                        message: `I matched that locally. For complex commands, add an API key in settings. Try "help" to see what I can do.`
-                    };
+                const hasOllama = ollama?.connected;
+                const hasAPI = !!apiKey;
+                let hint = '';
+
+                if (!hasOllama && !hasAPI) {
+                    hint = 'Commands are parsed locally. For complex edits, connect Ollama or add an API key in settings.';
+                } else if (hasOllama) {
+                    hint = 'Ollama couldn\'t parse that. Try rephrasing or type "help".';
                 } else {
-                    command = { action: 'chat', message: "I couldn't parse that. Try 'help' for available commands." };
+                    hint = 'Try "help" for available commands.';
                 }
+
+                command = { action: 'chat', message: hint };
             }
 
             // Special handling for help
             if (command.action === 'help') {
-                const helpMsg = { role: 'assistant', content: HELP_MESSAGE };
-                setMessages(prev => [...prev, helpMsg]);
+                setMessages(prev => [...prev, { role: 'assistant', content: HELP_MESSAGE }]);
                 setIsProcessing(false);
                 return command;
             }
 
-            // Add AI response
+            // Build response text
             let responseText = '';
             switch (command.action) {
                 case 'trim':
@@ -109,16 +166,16 @@ export const useAI = () => {
                     responseText = `Trimming last ${command.seconds} seconds...`;
                     break;
                 case 'zoom':
-                    responseText = `Adding ${command.level}x zoom at ${command.time}s for ${command.duration}s...`;
+                    responseText = `Adding ${command.level || 3}x zoom at ${command.time}s for ${command.duration}s...`;
                     break;
                 case 'title':
-                    responseText = `Adding title card: "${command.text}" for ${command.duration}s...`;
+                    responseText = `Adding title: "${command.text}" for ${command.duration}s...`;
                     break;
                 case 'export_gif':
                     responseText = 'Preparing GIF export...';
                     break;
                 case 'transcribe':
-                    responseText = 'Starting transcription (model will download on first use)...';
+                    responseText = 'Starting transcription...';
                     break;
                 case 'set_quality':
                     responseText = `Setting quality to ${command.quality}...`;
@@ -148,7 +205,7 @@ export const useAI = () => {
                     responseText = command.message;
                     break;
                 default:
-                    responseText = `Command: ${command.action}`;
+                    responseText = `Done: ${command.action}`;
             }
 
             setMessages(prev => [...prev, { role: 'assistant', content: responseText }]);
@@ -156,7 +213,7 @@ export const useAI = () => {
         } finally {
             setIsProcessing(false);
         }
-    }, [parseLocal, callLLM, apiKey]);
+    }, [parseLocal, callOllama, callAPI, apiKey, ollama, messages]);
 
     const clearMessages = useCallback(() => {
         setMessages([
@@ -169,8 +226,8 @@ export const useAI = () => {
         isProcessing,
         sendMessage,
         clearMessages,
-        apiKey, setApiKey,
-        apiEndpoint, setApiEndpoint,
-        model, setModel,
+        apiKey, setApiKey: updateApiKey,
+        apiEndpoint, setApiEndpoint: updateApiEndpoint,
+        model, setModel: updateModel,
     };
 };
