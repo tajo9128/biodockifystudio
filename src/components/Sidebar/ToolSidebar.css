@@ -1,0 +1,45 @@
+.tool-sidebar {
+    width: var(--sidebar-w, 56px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 0.5rem 0;
+    background: var(--nav-bg);
+    border-right: 1px solid var(--glass-border);
+    flex-shrink: 0;
+}
+
+.tool-sidebar-btn {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    letter-spacing: 0.05em;
+}
+
+.tool-sidebar-btn:hover {
+    background: var(--glass-hover);
+    color: var(--text-main);
+    border-color: var(--glass-border);
+}
+
+.tool-sidebar-btn.active {
+    background: var(--primary-soft, rgba(139, 92, 246, 0.15));
+    color: var(--primary);
+    border-color: var(--primary);
+}
+
+.tool-sidebar-icon {
+    font-size: 0.8rem;
+}

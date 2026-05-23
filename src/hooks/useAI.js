@@ -38,7 +38,7 @@ export const useAI = () => {
     const checkOllama = useCallback(async () => {
         for (const base of OLLAMA_ENDPOINTS) {
             try {
-                const res = await fetch(`${base}/tags`, { signal: AbortSignal.timeout(3000) });
+                const res = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(3000) });
                 if (res.ok) {
                     const data = await res.json();
                     const models = data.models?.map(m => m.name) || [];

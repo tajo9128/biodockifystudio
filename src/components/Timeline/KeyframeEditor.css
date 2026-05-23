@@ -1,0 +1,80 @@
+.keyframe-editor {
+    position: fixed;
+    right: 1rem;
+    bottom: 140px;
+    width: 360px;
+    max-height: 400px;
+    background: var(--surface, #1e1e2e);
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.1));
+    border-radius: 12px;
+    z-index: 100;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.kf-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--glass-border, rgba(255,255,255,0.1));
+}
+.kf-header h3 { margin: 0; font-size: 0.9rem; color: var(--text-main, #e2e8f0); }
+.kf-body { padding: 0.75rem; overflow-y: auto; flex: 1; }
+.kf-param-select { margin-bottom: 0.75rem; }
+.kf-param-select label { font-size: 0.75rem; color: var(--text-muted, #94a3b8); display: block; margin-bottom: 0.25rem; }
+.kf-param-select select { width: 100%; margin-bottom: 0.5rem; }
+.kf-field { flex: 1; }
+.kf-field label { font-size: 0.7rem; color: var(--text-muted, #94a3b8); display: block; margin-bottom: 0.2rem; }
+.kf-input {
+    width: 100%;
+    background: var(--glass, rgba(255,255,255,0.05));
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.1));
+    border-radius: 6px;
+    color: var(--text-main, #e2e8f0);
+    padding: 0.35rem 0.5rem;
+    font-size: 0.8rem;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+.kf-input:focus { outline: none; border-color: var(--primary, #8b5cf6); }
+.kf-list {
+    max-height: 150px;
+    overflow-y: auto;
+    margin-bottom: 0.75rem;
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
+    border-radius: 6px;
+}
+.kf-empty {
+    padding: 1rem;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--text-muted, #94a3b8);
+}
+.kf-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 0.75rem;
+    color: var(--text-main, #e2e8f0);
+}
+.kf-item:last-child { border-bottom: none; }
+.kf-time { font-family: monospace; color: var(--primary, #8b5cf6); min-width: 50px; }
+.kf-value { font-family: monospace; min-width: 50px; }
+.kf-interp { font-size: 0.65rem; color: var(--text-muted, #94a3b8); flex: 1; }
+.kf-remove {
+    background: transparent;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 0 0.25rem;
+}
+.kf-add-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+}
+.kf-add-btn { align-self: flex-end; white-space: nowrap; }

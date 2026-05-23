@@ -1,0 +1,192 @@
+.right-panel {
+    width: var(--rightpanel-w, 280px);
+    display: flex;
+    flex-direction: column;
+    background: var(--nav-bg);
+    border-left: 1px solid var(--glass-border);
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.right-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--glass-border);
+    flex-shrink: 0;
+}
+
+.right-panel-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-main);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.right-panel-close {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.right-panel-close:hover {
+    background: var(--glass-hover);
+    color: var(--text-main);
+}
+
+.right-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.rp-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.rp-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.rp-prop-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.35rem 0;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.rp-prop-row span:last-child {
+    color: var(--text-main);
+    font-weight: 600;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.75rem;
+}
+
+.rp-transition-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+}
+
+.rp-transition-btn {
+    padding: 0.4rem 0.5rem;
+    border-radius: 6px;
+    border: 1px solid var(--glass-border);
+    background: var(--glass);
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.65rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+    text-transform: capitalize;
+}
+
+.rp-transition-btn:hover {
+    background: var(--glass-hover);
+    color: var(--text-main);
+    border-color: var(--primary);
+}
+
+.rp-keyframe-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.rp-keyframe-param {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.rp-keyframe-param-name {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.rp-keyframe-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    padding: 0.2rem 0.4rem;
+    background: var(--glass);
+    border-radius: 4px;
+}
+
+.rp-keyframe-del {
+    margin-left: auto;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.6rem;
+    cursor: pointer;
+}
+
+.rp-keyframe-del:hover {
+    color: var(--danger);
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.rp-empty {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    padding: 0.5rem 0;
+}
+
+.rp-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    text-align: center;
+    gap: 0.5rem;
+}
+
+.rp-empty-state p {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.rp-empty-hint {
+    font-size: 0.7rem;
+    opacity: 0.6;
+}

@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
+import { ClipContextMenu } from './ClipContextMenu';
 import './Timeline.css';
 
 const TRACK_HEIGHT = 56;
@@ -7,27 +8,37 @@ const TIME_SCALE_BASE = 80; // pixels per second at zoom=1
 export const Timeline = ({
     clips, tracks, currentTime, duration, selectedClipId, isPlaying, zoom,
     onSelectClip, onSeek, onSplit, onDelete, onMove, onResize, onPlay, onPause, onStop, onZoomChange,
+    onDuplicate, onSpeed, onAddTrack, onRemoveTrack, onToggleMute, onToggleLock,
     clipThumbnails = {},
 }) => {
     const containerRef = useRef(null);
     const scrollRef = useRef(null);
-    const [dragging, setDragging] = useState(null); // { type: 'move'|'resize-left'|'resize-right', clipId, startX, origStart, origDuration }
+    const [dragging, setDragging] = useState(null);
     const [playheadDragging, setPlayheadDragging] = useState(false);
+    const [contextMenu, setContextMenu] = useState(null);
+    const [speedSlider, setSpeedSlider] = useState(null); // { clipId, x, y }
     const timeScale = TIME_SCALE_BASE * zoom;
     const totalWidth = Math.max(duration * timeScale + 200, 800);
 
     const timeToX = useCallback((t) => t * timeScale, [timeScale]);
     const xToTime = useCallback((x) => x / timeScale, [timeScale]);
 
+    // Close context menu on click elsewhere
+    useEffect(() => {
+        const close = () => { setContextMenu(null); setSpeedSlider(null); };
+        window.addEventListener('click', close);
+        return () => window.removeEventListener('click', close);
+    }, []);
+
     const handleTimelineClick = useCallback((e) => {
         if (playheadDragging || dragging) return;
+        if (contextMenu) { setContextMenu(null); return; }
         const rect = scrollRef.current.getBoundingClientRect();
         const x = e.clientX - rect.left + scrollRef.current.scrollLeft;
         const y = e.clientY - rect.top;
         const trackIndex = Math.floor(y / TRACK_HEIGHT);
         const time = xToTime(x);
 
-        // Check if clicking a clip
         const clickedClip = clips.find(c => {
             if (c.trackIndex !== trackIndex) return false;
             return time >= c.startTime && time < c.startTime + c.duration;
@@ -39,7 +50,7 @@ export const Timeline = ({
             onSelectClip(null);
             onSeek(Math.max(0, time));
         }
-    }, [clips, dragging, playheadDragging, xToTime, onSelectClip, onSeek]);
+    }, [clips, dragging, playheadDragging, xToTime, onSelectClip, onSeek, contextMenu]);
 
     const handleClipMouseDown = useCallback((e, clip, resizeSide) => {
         e.stopPropagation();
@@ -65,6 +76,13 @@ export const Timeline = ({
         }
     }, [onSelectClip]);
 
+    const handleClipContextMenu = useCallback((e, clip) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onSelectClip(clip.id);
+        setContextMenu({ x: e.clientX, y: e.clientY, clip });
+    }, [onSelectClip]);
+
     useEffect(() => {
         if (!dragging) return;
 
@@ -74,7 +92,6 @@ export const Timeline = ({
 
             if (dragging.type === 'move') {
                 const newStart = Math.max(0, dragging.origStart + dt);
-                // Calculate new track from Y position
                 const container = scrollRef.current;
                 if (container) {
                     const rect = container.getBoundingClientRect();
@@ -93,9 +110,7 @@ export const Timeline = ({
             }
         };
 
-        const handleMouseUp = () => {
-            setDragging(null);
-        };
+        const handleMouseUp = () => { setDragging(null); };
 
         window.addEventListener('mousemove', handleMouseMove);
         window.addEventListener('mouseup', handleMouseUp);
@@ -188,23 +203,19 @@ export const Timeline = ({
                     opacity: track?.muted ? 0.4 : 1,
                 }}
                 onMouseDown={(e) => handleClipMouseDown(e, clip, null)}
+                onContextMenu={(e) => handleClipContextMenu(e, clip)}
+                onDoubleClick={() => setSpeedSlider({ clipId: clip.id, x: x, y: clip.trackIndex * TRACK_HEIGHT })}
             >
-                {/* Left resize handle */}
                 <div className="tl-clip-handle tl-clip-handle-left"
                     onMouseDown={(e) => handleClipMouseDown(e, clip, 'left')} />
-
-                {/* Clip content */}
                 <div className="tl-clip-content">
                     <span className="tl-clip-label">{clip.label || clip.type}</span>
+                    {clip.speed !== 1 && <span className="tl-clip-speed">{clip.speed}x</span>}
                     <span className="tl-clip-duration">{formatTime(clip.duration)}</span>
                 </div>
-
-                {/* Thumbnail */}
                 {clipThumbnails[clip.id] && (
                     <div className="tl-clip-thumb" style={{ backgroundImage: `url(${clipThumbnails[clip.id]})` }} />
                 )}
-
-                {/* Filter indicators */}
                 {clip.filters.length > 0 && (
                     <div className="tl-clip-filters">
                         {clip.filters.map((f, i) => (
@@ -212,8 +223,13 @@ export const Timeline = ({
                         ))}
                     </div>
                 )}
-
-                {/* Right resize handle */}
+                {clip.keyframes && Object.keys(clip.keyframes).length > 0 && (
+                    <div className="tl-clip-keyframes">
+                        {Object.values(clip.keyframes).flat().map((kf, i) => (
+                            <div key={i} className="tl-keyframe-dot" style={{ left: `${((kf.time / clip.duration) * 100)}%` }} />
+                        ))}
+                    </div>
+                )}
                 <div className="tl-clip-handle tl-clip-handle-right"
                     onMouseDown={(e) => handleClipMouseDown(e, clip, 'right')} />
             </div>
@@ -229,40 +245,71 @@ export const Timeline = ({
                         <span className="tl-track-name">{track.name}</span>
                         <div className="tl-track-controls">
                             <button className={`tl-btn ${track.muted ? 'tl-btn-muted' : ''}`}
-                                onClick={() => {}} title="Mute">M</button>
+                                onClick={() => onToggleMute?.(track.id)} title="Mute">M</button>
                             <button className={`tl-btn ${track.locked ? 'tl-btn-locked' : ''}`}
-                                onClick={() => {}} title="Lock">L</button>
+                                onClick={() => onToggleLock?.(track.id)} title="Lock">L</button>
+                            {tracks.length > 1 && (
+                                <button className="tl-btn tl-btn-remove" onClick={() => onRemoveTrack?.(track.id)} title="Remove Track">-</button>
+                            )}
                         </div>
                     </div>
                 ))}
+                <div className="tl-add-track" onClick={() => onAddTrack?.()}>
+                    <span>+ Track</span>
+                </div>
             </div>
 
             {/* Timeline body */}
             <div className="tl-scroll" ref={scrollRef} onClick={handleTimelineClick}>
-                {/* Time ruler */}
                 <div className="tl-ruler" style={{ width: totalWidth }}>
                     {renderTimeMarkers()}
                 </div>
-
-                {/* Track lanes */}
                 <div className="tl-tracks" style={{ width: totalWidth }}>
                     {tracks.map((track, i) => (
                         <div key={track.id} className="tl-track-lane" style={{ height: TRACK_HEIGHT }} />
                     ))}
                 </div>
-
-                {/* Clips */}
                 <div className="tl-clips" style={{ width: totalWidth }}>
                     {clips.map(renderClip)}
                 </div>
-
-                {/* Playhead */}
                 <div className="tl-playhead" style={{ left: timeToX(currentTime) }}
                     onMouseDown={handlePlayheadMouseDown}>
                     <div className="tl-playhead-head" />
                     <div className="tl-playhead-line" />
                 </div>
             </div>
+
+            {/* Speed slider popup */}
+            {speedSlider && (() => {
+                const clip = clips.find(c => c.id === speedSlider.clipId);
+                if (!clip) return null;
+                return (
+                    <div className="tl-speed-popup" style={{ left: speedSlider.x, top: speedSlider.y + TRACK_HEIGHT }}
+                        onClick={e => e.stopPropagation()}>
+                        <label>Speed: {clip.speed}x</label>
+                        <input type="range" min={0.25} max={4} step={0.25} value={clip.speed}
+                            onChange={e => onSpeed?.(speedSlider.clipId, parseFloat(e.target.value))} />
+                        <div className="tl-speed-presets">
+                            {[0.5, 1, 1.5, 2].map(s => (
+                                <button key={s} className={`tl-btn ${clip.speed === s ? 'active' : ''}`}
+                                    onClick={() => onSpeed?.(speedSlider.clipId, s)}>{s}x</button>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* Context menu */}
+            {contextMenu && (
+                <ClipContextMenu
+                    x={contextMenu.x} y={contextMenu.y} clip={contextMenu.clip}
+                    onClose={() => setContextMenu(null)}
+                    onSplit={onSplit} onDelete={onDelete}
+                    onDuplicate={() => onDuplicate?.(contextMenu.clip.id)}
+                    onSpeed={(speed) => onSpeed?.(contextMenu.clip.id, speed)}
+                    onFilters={() => {}} onKeyframes={() => {}}
+                />
+            )}
 
             {/* Transport controls */}
             <div className="tl-transport">
