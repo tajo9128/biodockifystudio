@@ -353,6 +353,12 @@ export const ControlBar = ({
                         onClick={() => setChatOpen(!chatOpen)}>
                         🤖 AI
                     </button>
+                    <div className="vertical-divider" style={{ width: '1px', background: 'var(--glass-border)', margin: '0 0.2rem' }}></div>
+                    <button className={`btn-pill ${youtubeOpen ? 'active' : ''}`}
+                        onClick={() => setYoutubeOpen(!youtubeOpen)}
+                        title="Upload to YouTube">
+                        📺 YouTube
+                    </button>
                 </div>
 
                 <div className="main-actions">
