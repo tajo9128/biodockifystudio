@@ -145,6 +145,38 @@ Crossfade, Fade to Black, Wipe (Left/Right/Up/Down), Slide Left, Zoom In, Dissol
 Browser (MediaRecorder) → WebSocket → rtmp-relay (FFmpeg) → YouTube Live
 ```
 
+### Webinar Mode
+> *Present and engage with your audience — OBS scene composition + Loom simplicity*
+
+**Layout:**
+- Full-screen canvas with scene composition
+- Scene switcher strip (click to switch layouts live)
+- Camera + Screen side-by-side preset
+- Lower Third name/title overlay with live editing
+
+**Features:**
+- **Scene Composition** — 4 default scenes:
+  - Screen Only (full-screen capture)
+  - Camera + Screen PiP (picture-in-picture)
+  - Full Camera (presenter-focused)
+  - Screen + Webcam Side (split layout)
+- **Lower Third** — Professional name/title bar, editable in real-time
+- **Q&A Overlay** — Show audience questions on screen with answers
+- **Audio Mixer** — Per-source volume, mute, real-time level meters
+- **Source Management** — Add/remove/reorder sources per scene
+- **Record + Stream simultaneously** — Record locally while streaming to YouTube Live
+- **Replay Buffer** — Save last N seconds on hotkey (15s/30s/60s)
+- **Live indicator** — Pulse badge showing stream/recording status
+
+**Source Types:**
+Screen, Camera, Text overlay, Color background, Image
+
+**Perfect for:**
+- Webinars with screen sharing + camera
+- Live coding sessions
+- Product demos with presenter overlay
+- Online teaching with slides + face cam
+
 ### Export Mode
 > *One-click export with format/quality control*
 
@@ -232,12 +264,13 @@ docker-compose -f docker-compose.full.yml up --build
 # Includes screenstudio + ollama + rtmp-relay
 ```
 
-**3 Compose Files:**
+**4 Compose Files:**
 | File | Use Case |
 |---|---|
 | `docker-compose.yml` | Base app (Ollama on host) |
 | `docker-compose.desktop.yml` | Docker Desktop (Ollama on host) |
 | `docker-compose.vps.yml` | VPS with Ollama in container |
+| `docker-compose.full.yml` | Full stack: ScreenStudio + Ollama + RTMP Relay (streaming) |
 
 ---
 
