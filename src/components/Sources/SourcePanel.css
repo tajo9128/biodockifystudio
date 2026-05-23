@@ -1,0 +1,131 @@
+.source-panel {
+    width: 240px;
+    display: flex;
+    flex-direction: column;
+    background: var(--nav-bg);
+    border-right: 1px solid var(--glass-border);
+    flex-shrink: 0;
+    overflow: hidden;
+}
+.source-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--glass-border);
+}
+.source-panel-header h3 { margin: 0; font-size: 0.8rem; color: var(--text-main); }
+.source-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.35rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.source-item {
+    border-radius: 6px;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+}
+.source-item.editing { border-color: var(--primary); background: var(--primary-soft); }
+.source-item-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.5rem;
+}
+.source-item-icon { font-size: 0.75rem; min-width: 18px; text-align: center; }
+.source-item-name {
+    flex: 1;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.source-item-actions { display: flex; gap: 2px; }
+.source-item-btn {
+    width: 20px; height: 20px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 4px; border: none;
+    background: transparent; color: var(--text-muted);
+    font-size: 0.55rem; font-weight: 800;
+    cursor: pointer;
+}
+.source-item-btn:hover { background: var(--glass-hover); color: var(--text-main); }
+.source-item-btn.danger:hover { color: var(--danger); }
+.source-item-edit {
+    padding: 0.35rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    border-top: 1px solid var(--glass-border);
+}
+.source-edit-field { display: flex; flex-direction: column; gap: 0.15rem; }
+.source-edit-field label { font-size: 0.6rem; color: var(--text-muted); }
+.source-edit-field input {
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    border: 1px solid var(--glass-border);
+    background: var(--bg-deep);
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 0.7rem;
+}
+.source-edit-field input:focus { outline: none; border-color: var(--primary); }
+.source-edit-field input[type="color"] { padding: 0; height: 24px; cursor: pointer; }
+.source-empty {
+    padding: 1.5rem 0.5rem;
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+.source-panel-footer {
+    border-top: 1px solid var(--glass-border);
+    padding: 0.4rem;
+    position: relative;
+}
+.source-add-btn {
+    width: 100%;
+    padding: 0.35rem;
+    border-radius: 6px;
+    border: 1px dashed var(--glass-border);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.source-add-btn:hover { background: var(--glass-hover); color: var(--primary); border-color: var(--primary); }
+.source-add-menu {
+    position: absolute;
+    bottom: 100%;
+    left: 0.4rem;
+    right: 0.4rem;
+    background: var(--bg-card);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 0.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    z-index: 10;
+}
+.source-add-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 0.72rem;
+    cursor: pointer;
+}
+.source-add-item:hover { background: var(--glass-hover); }

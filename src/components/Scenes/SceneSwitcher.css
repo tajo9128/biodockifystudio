@@ -1,0 +1,41 @@
+.scene-switcher {
+    display: flex;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    background: var(--nav-bg);
+    border-bottom: 1px solid var(--glass-border);
+    overflow-x: auto;
+    flex-shrink: 0;
+}
+.scene-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 8px;
+    border: 2px solid var(--glass-border);
+    background: var(--glass);
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+.scene-btn:hover { background: var(--glass-hover); color: var(--text-main); }
+.scene-btn.active { background: var(--primary-soft); color: var(--primary); font-weight: 700; }
+.scene-btn-num {
+    width: 18px; height: 18px; border-radius: 4px;
+    background: rgba(255,255,255,0.08);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.6rem; font-weight: 800;
+}
+.scene-btn-name { font-weight: 600; }
+.scene-btn-sources { font-size: 0.6rem; opacity: 0.5; }
+.scene-btn-add {
+    border-style: dashed;
+    min-width: 36px;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: 300;
+}

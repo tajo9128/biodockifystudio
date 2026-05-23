@@ -3,9 +3,14 @@ services:
     build: .
     ports:
       - "3000:80"
-    restart: unless-stopped
-    # Ollama connects via host network — user runs Ollama separately
-    # Default: http://localhost:11434
-    # For VPS with Ollama on same host: use host.docker.internal
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      - rtmp-relay
+
+  rtmp-relay:
+    build: ./server
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080

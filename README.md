@@ -28,10 +28,10 @@ ScreenStudio combines the best of three worlds into one seamless browser-based a
 
 ---
 
-## 5 Modes, 1 App
+## 6 Modes, 1 App
 
 ```
-[ Record ]  [ Edit ]  [ Stream ]  [ Export ]  [ Settings ]
+[ Record ]  [ Edit ]  [ Stream ]  [ Webinar ]  [ Export ]  [ Settings ]
 ```
 
 ### Record Mode

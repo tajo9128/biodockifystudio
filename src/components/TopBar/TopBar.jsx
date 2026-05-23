@@ -6,6 +6,8 @@ import './TopBar.css';
 const MODES = [
     { id: 'record', label: 'Record', path: '/recorder', icon: 'REC' },
     { id: 'edit', label: 'Edit', path: '/editor', icon: 'EDIT' },
+    { id: 'stream', label: 'Stream', path: '/stream', icon: 'LIVE' },
+    { id: 'webinar', label: 'Webinar', path: '/webinar', icon: 'WEB' },
     { id: 'export', label: 'Export', path: '/export', icon: 'OUT' },
 ];
 
