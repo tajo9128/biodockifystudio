@@ -3,14 +3,16 @@ import './AIAssistant.css';
 
 export const AIAssistant = ({
     isOpen, onToggle,
-    messages, isProcessing, onSend, onClear,
-    ollamaConnected, ollamaModel, ollamaModels, onCheckOllama,
+    messages, isProcessing, isStreaming, onSend, onClear,
+    ollamaConnected, ollamaModel, ollamaModels, onCheckOllama, onSetOllamaModel,
     apiKey, onApiKeyChange,
+    voiceInput, onStartVoice, onStopVoice,
 }) => {
     const [input, setInput] = useState('');
     const [showSettings, setShowSettings] = useState(false);
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
+    const [voiceText, setVoiceText] = useState('');
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -22,9 +24,11 @@ export const AIAssistant = ({
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (!input.trim() || isProcessing) return;
-        onSend(input);
+        const text = input.trim() || voiceText.trim();
+        if (!text || isProcessing) return;
+        onSend(text);
         setInput('');
+        setVoiceText('');
     };
 
     const handleKeyDown = (e) => {
@@ -33,6 +37,23 @@ export const AIAssistant = ({
             handleSubmit(e);
         }
     };
+
+    const handleVoice = () => {
+        if (voiceInput) {
+            onStopVoice?.();
+        } else {
+            onStartVoice?.((text, isInterim) => {
+                if (isInterim) {
+                    setVoiceText(text);
+                } else {
+                    setInput(text);
+                    setVoiceText('');
+                }
+            });
+        }
+    };
+
+    const displayText = voiceText || input;
 
     return (
         <>
@@ -77,17 +98,29 @@ export const AIAssistant = ({
                             <div className="ai-setting">
                                 <label>Ollama</label>
                                 <span className={ollamaConnected ? 'ai-connected' : 'ai-disconnected'}>
-                                    {ollamaConnected ? `Connected: ${ollamaModel}` : 'Not connected'}
+                                    {ollamaConnected ? `Connected` : 'Offline'}
                                 </span>
                                 <button className="ai-drawer-btn-sm" onClick={onCheckOllama}>Refresh</button>
                             </div>
+                            {ollamaConnected && ollamaModels?.length > 0 && (
+                                <div className="ai-setting">
+                                    <label>Model</label>
+                                    <select
+                                        className="ai-setting-select"
+                                        value={ollamaModel || ''}
+                                        onChange={e => onSetOllamaModel?.(e.target.value)}
+                                    >
+                                        {ollamaModels.map(m => <option key={m} value={m}>{m}</option>)}
+                                    </select>
+                                </div>
+                            )}
                             <div className="ai-setting">
-                                <label>API Key (OpenAI-compatible)</label>
+                                <label>API Key</label>
                                 <input
                                     type="password"
                                     value={apiKey || ''}
                                     onChange={e => onApiKeyChange?.(e.target.value)}
-                                    placeholder="sk-..."
+                                    placeholder="sk-... (OpenAI fallback)"
                                     className="ai-setting-input"
                                 />
                             </div>
@@ -95,12 +128,27 @@ export const AIAssistant = ({
                     )}
 
                     <div className="ai-drawer-messages">
+                        {messages.length === 0 && (
+                            <div className="ai-drawer-empty">
+                                <p>Ask me to edit your video</p>
+                                <div className="ai-suggestions">
+                                    {['Trim first 5 seconds', 'Apply sepia filter', 'Set speed to 2x', 'Add zoom at 0:30 for 3s'].map(s => (
+                                        <button key={s} className="ai-suggestion" onClick={() => onSend(s)}>{s}</button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         {messages.map((msg, i) => (
                             <div key={i} className={`ai-msg ai-msg-${msg.role}`}>
-                                <div className="ai-msg-content">{msg.content}</div>
+                                <div className="ai-msg-content">
+                                    {msg.content}
+                                    {isStreaming && i === messages.length - 1 && msg.role === 'assistant' && (
+                                        <span className="ai-streaming-cursor" />
+                                    )}
+                                </div>
                             </div>
                         ))}
-                        {isProcessing && (
+                        {isProcessing && !isStreaming && (
                             <div className="ai-msg ai-msg-assistant">
                                 <div className="ai-msg-content ai-thinking">
                                     <span className="ai-dot" /><span className="ai-dot" /><span className="ai-dot" />
@@ -111,15 +159,23 @@ export const AIAssistant = ({
                     </div>
 
                     <form className="ai-drawer-input" onSubmit={handleSubmit}>
+                        <button type="button" className={`ai-voice-btn ${voiceInput ? 'active' : ''}`} onClick={handleVoice} title={voiceInput ? 'Stop listening' : 'Voice input'}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                <line x1="12" y1="19" x2="12" y2="23"/>
+                                <line x1="8" y1="23" x2="16" y2="23"/>
+                            </svg>
+                        </button>
                         <input
                             ref={inputRef}
-                            value={input}
-                            onChange={e => setInput(e.target.value)}
+                            value={displayText}
+                            onChange={e => { setInput(e.target.value); setVoiceText(''); }}
                             onKeyDown={handleKeyDown}
-                            placeholder='Try: "trim first 5 seconds" or "help"'
+                            placeholder={voiceInput ? 'Listening...' : 'Try: "trim first 5 seconds" or "help"'}
                             disabled={isProcessing}
                         />
-                        <button type="submit" disabled={!input.trim() || isProcessing}>
+                        <button type="submit" disabled={(!input.trim() && !voiceText.trim()) || isProcessing}>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
                             </svg>
