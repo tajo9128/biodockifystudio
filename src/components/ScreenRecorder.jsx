@@ -355,15 +355,12 @@ const ScreenRecorder = () => {
         // Restore zoom before drawing overlays at normal scale
         restoreZoom(ctx);
 
-        // Restore zoom before drawing overlays at normal scale
-        restoreZoom(ctx);
-
         // Cursor effects overlay
         drawCursorFx(ctx, canvas.width, canvas.height);
 
         // Annotation overlay
         drawAnnotations(ctx);
-    }, [cameraStream, screenStream, activeBg, webcamScale, screenScale, webcamShape, recordingQuality, webcamOnly, annotationEnabled, zoomEnabled, drawCursorFx, drawAnnotations, applyZoom, restoreZoom]);
+    }, [cameraStream, screenStream, activeBg, webcamScale, screenScale, webcamShape, recordingQuality, webcamOnly, annotationEnabled, zoomEnabled, drawCursorFx, drawAnnotations, restoreZoom]);
 
     const launchLoop = useCallback(() => {
         const isCanvasNeeded = cameraStream || activeBg !== 'none' || screenScale < 1.0 || recordingQuality !== 'native' || webcamOnly || cursorFxEnabled || annotationEnabled || zoomEnabled;
