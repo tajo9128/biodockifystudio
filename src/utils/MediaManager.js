@@ -1,27 +1,48 @@
 class MediaManager {
+    isScreenCaptureSupported() {
+        return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+    }
+
     async getScreenStream(sourceType = 'screen') {
+        if (!this.isScreenCaptureSupported()) {
+            throw new Error('Screen capture not supported in this browser. Use Chrome, Edge, or Firefox.');
+        }
+
         const videoConstraints = {
             cursor: 'always',
             frameRate: { ideal: 30, max: 30 }
         };
 
-        switch (sourceType) {
-            case 'window':
-                videoConstraints.displaySurface = 'window';
-                break;
-            case 'tab':
-                videoConstraints.displaySurface = 'browser';
-                break;
-            case 'screen':
-            default:
-                videoConstraints.displaySurface = 'monitor';
-                break;
-        }
+        // displaySurface is not supported in all browsers (Firefox rejects it)
+        try {
+            switch (sourceType) {
+                case 'window':
+                    videoConstraints.displaySurface = 'window';
+                    break;
+                case 'tab':
+                    videoConstraints.displaySurface = 'browser';
+                    break;
+                case 'screen':
+                default:
+                    videoConstraints.displaySurface = 'monitor';
+                    break;
+            }
 
-        return navigator.mediaDevices.getDisplayMedia({
-            video: videoConstraints,
-            audio: true
-        });
+            return await navigator.mediaDevices.getDisplayMedia({
+                video: videoConstraints,
+                audio: true
+            });
+        } catch (err) {
+            // If displaySurface constraint fails, retry without it (Firefox compat)
+            if (err.name === 'OverconstrainedError' || err.name === 'TypeError') {
+                const fallbackConstraints = { cursor: 'always', frameRate: { ideal: 30, max: 30 } };
+                return navigator.mediaDevices.getDisplayMedia({
+                    video: fallbackConstraints,
+                    audio: true
+                });
+            }
+            throw err;
+        }
     }
 
     async getCameraStream(width, height, deviceId) {

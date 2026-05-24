@@ -4,3 +4,9 @@ dist
 *.md
 .env*
 .github
+.agent
+*.log
+Dockerfile*
+docker-compose*
+server
+*.sh

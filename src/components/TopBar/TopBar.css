@@ -124,3 +124,33 @@
     color: var(--text-main);
     border-color: var(--primary);
 }
+
+.topbar-status-badges {
+    display: flex;
+    gap: 6px;
+    margin-left: 12px;
+}
+
+.topbar-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    animation: badge-pulse 1.5s ease-in-out infinite;
+}
+
+.topbar-badge.rec {
+    background: #ef4444;
+    color: #fff;
+}
+
+.topbar-badge.live {
+    background: #8b5cf6;
+    color: #fff;
+}
+
+@keyframes badge-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}

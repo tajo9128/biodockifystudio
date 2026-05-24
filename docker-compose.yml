@@ -3,6 +3,7 @@ services:
     build: .
     ports:
       - "3000:80"
+    restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -12,5 +13,6 @@ services:
     build: ./server
     ports:
       - "8080:8080"
+    restart: unless-stopped
     environment:
       - PORT=8080

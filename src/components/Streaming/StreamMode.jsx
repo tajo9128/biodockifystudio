@@ -22,6 +22,24 @@ export const StreamMode = () => {
     const streaming = useStreaming();
     const replay = useReplayBuffer();
 
+    // Guard against accidental page close during streaming/recording
+    useEffect(() => {
+        const active = recording.isRecording || streaming.isStreaming;
+        if (!active) return;
+        const handler = (e) => { e.preventDefault(); e.returnValue = ''; };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [recording.isRecording, streaming.isStreaming]);
+
+    // Cleanup streams on unmount
+    useEffect(() => {
+        return () => {
+            if (!recording.isRecording && !streaming.isStreaming) {
+                streams.stopAll?.();
+            }
+        };
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
     // Canvas render loop
     useEffect(() => {
         let running = true;

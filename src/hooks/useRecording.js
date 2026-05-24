@@ -31,7 +31,8 @@ export const useRecording = ({
             }
 
             if (!screenStream && !cameraStream) {
-                alert('Enable Screen or Camera first');
+                setStatus('error');
+                isStartingRef.current = false;
                 return;
             }
 
@@ -103,7 +104,8 @@ export const useRecording = ({
                 }
             };
 
-            mediaRecorder.onerror = () => {
+            mediaRecorder.onerror = (e) => {
+                console.error('MediaRecorder error:', e.error);
                 setStatus('error');
             };
 

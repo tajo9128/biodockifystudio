@@ -189,6 +189,14 @@ const ScreenRecorder = () => {
         return () => handleStopAll();
     }, []);
 
+    // Guard against accidental page close during recording
+    useEffect(() => {
+        if (!isRecording) return;
+        const handler = (e) => { e.preventDefault(); e.returnValue = ''; };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [isRecording]);
+
     useEffect(() => {
         if (isRecording && !isPaused) {
             elapsedTimerRef.current = setInterval(() => setElapsedTime(prev => prev + 1), 1000);

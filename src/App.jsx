@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import { ThemeProvider } from './context/ThemeContext.jsx';
+import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { AppShell } from './components/AppShell/AppShell';
 import ScreenRecorder from './components/ScreenRecorder';
 import { EditMode } from './components/EditMode/EditMode';
@@ -14,22 +15,24 @@ import './index.css';
 
 function App() {
   return (
-    <Router>
-      <ThemeProvider>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route element={<AppShell />}>
-            <Route path="/recorder" element={<ScreenRecorder />} />
-            <Route path="/editor" element={<EditMode />} />
-            <Route path="/stream" element={<StreamMode />} />
-            <Route path="/webinar" element={<WebinarMode />} />
-            <Route path="/export" element={<ExportMode />} />
-            <Route path="/settings" element={<SettingsPage />} />
-          </Route>
-        </Routes>
-        <Analytics />
-      </ThemeProvider>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route element={<AppShell />}>
+              <Route path="/recorder" element={<ScreenRecorder />} />
+              <Route path="/editor" element={<EditMode />} />
+              <Route path="/stream" element={<StreamMode />} />
+              <Route path="/webinar" element={<WebinarMode />} />
+              <Route path="/export" element={<ExportMode />} />
+              <Route path="/settings" element={<SettingsPage />} />
+            </Route>
+          </Routes>
+          <Analytics />
+        </ThemeProvider>
+      </Router>
+    </ErrorBoundary>
   );
 }
 

@@ -61,7 +61,7 @@ export const StreamPanel = ({
             setConfiguring(true);
             return;
         }
-        onStartStream(canvasRef, audioStream);
+        onStartStream(canvasRef.current, audioStream);
     };
 
     if (!isOpen) return null;
