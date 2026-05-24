@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { COMMAND_PATTERNS, SYSTEM_PROMPT, HELP_MESSAGE } from '../constants/aiPrompts';
 
 // Ollama endpoints: Docker proxy first, then direct localhost
@@ -109,7 +109,7 @@ export const useAI = () => {
             try { return JSON.parse(fullContent); }
             catch {
                 const jsonMatch = fullContent.match(/\{[^{}]*"action"[^{}]*\}/);
-                if (jsonMatch) { try { return JSON.parse(jsonMatch[0]); } catch {} }
+                if (jsonMatch) { try { return JSON.parse(jsonMatch[0]); } catch { /* json parse fallback */ } }
                 return { action: 'chat', message: fullContent.trim() };
             }
         } catch { return null; }
@@ -140,7 +140,7 @@ export const useAI = () => {
             try { return JSON.parse(content); }
             catch {
                 const jsonMatch = content.match(/\{[^{}]*"action"[^{}]*\}/);
-                if (jsonMatch) { try { return JSON.parse(jsonMatch[0]); } catch {} }
+                if (jsonMatch) { try { return JSON.parse(jsonMatch[0]); } catch { /* json parse fallback */ } }
                 return { action: 'chat', message: content };
             }
         } catch { return null; }
@@ -198,7 +198,7 @@ export const useAI = () => {
             try { return JSON.parse(fullContent); }
             catch {
                 const jsonMatch = fullContent.match(/\{[^{}]*"action"[^{}]*\}/);
-                if (jsonMatch) { try { return JSON.parse(jsonMatch[0]); } catch {} }
+                if (jsonMatch) { try { return JSON.parse(jsonMatch[0]); } catch { /* json parse fallback */ } }
                 return { action: 'chat', message: fullContent.trim() };
             }
         } catch { return null; }
@@ -226,7 +226,7 @@ export const useAI = () => {
             try { return JSON.parse(content); }
             catch {
                 const jsonMatch = content.match(/\{[^{}]*"action"[^{}]*\}/);
-                if (jsonMatch) { try { return JSON.parse(jsonMatch[0]); } catch {} }
+                if (jsonMatch) { try { return JSON.parse(jsonMatch[0]); } catch { /* json parse fallback */ } }
                 return { action: 'chat', message: content };
             }
         } catch { return null; }

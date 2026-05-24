@@ -1,19 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
-const SaveRecordingModal = ({ blob, mimeType, onSave, onDiscard, onYouTube }) => {
-    const [fileName, setFileName] = useState('');
-    const [extension, setExtension] = useState('.webm');
-
-    useEffect(() => {
-        if (blob) {
-            let ext = '.webm';
-            if (mimeType.includes('mp4')) ext = '.mp4';
-            else if (mimeType.includes('matroska') || mimeType.includes('mkv')) ext = '.mkv';
-
-            setExtension(ext);
-            setFileName(`recording-${new Date().toLocaleDateString().replace(/\//g, '-')}-${new Date().toLocaleTimeString().replace(/:/g, '-').split(' ')[0]}`);
-        }
-    }, [blob, mimeType]);
+const SaveRecordingModal = ({ blob, mimeType, onSave, onDiscard }) => {
+    const getExtension = (mt) => {
+        if (!mt) return '.webm';
+        if (mt.includes('mp4')) return '.mp4';
+        if (mt.includes('matroska') || mt.includes('mkv')) return '.mkv';
+        return '.webm';
+    };
+    const extension = getExtension(mimeType);
+    const defaultName = `recording-${new Date().toLocaleDateString().replace(/\//g, '-')}-${new Date().toLocaleTimeString().replace(/:/g, '-').split(' ')[0]}`;
+    const [fileName, setFileName] = useState(defaultName);
 
     if (!blob) return null;
 

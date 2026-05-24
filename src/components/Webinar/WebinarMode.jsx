@@ -17,7 +17,7 @@ export const WebinarMode = () => {
     const [showLowerThird, setShowLowerThird] = useState(true);
     const [lowerThirdName, setLowerThirdName] = useState('Speaker Name');
     const [lowerThirdTitle, setLowerThirdTitle] = useState('Title / Role');
-    const [qnaItems, setQnaItems] = useState([]);
+    const [qnaItems] = useState([]);
     const [showQna, setShowQna] = useState(false);
 
     const scenes = useScenes();
@@ -210,7 +210,7 @@ export const WebinarMode = () => {
                 onStartStream={streaming.startStream}
                 onStopStream={streaming.stopStream}
                 onCheckRelay={streaming.checkRelay}
-                canvasRef={canvasRef.current}
+                canvasRef={canvasRef}
                 audioStream={streams.audioStream}
             />
 

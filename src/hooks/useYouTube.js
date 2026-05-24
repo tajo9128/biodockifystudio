@@ -70,7 +70,7 @@ export const useYouTube = () => {
 
     const disconnect = useCallback(() => {
         if (tokenRef.current) {
-            try { window.google?.accounts?.oauth2?.revoke(tokenRef.current); } catch {}
+            try { window.google?.accounts?.oauth2?.revoke(tokenRef.current); } catch { /* silent */ }
         }
         tokenRef.current = null;
         setIsAuthenticated(false);

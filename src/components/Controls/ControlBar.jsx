@@ -72,7 +72,7 @@ export const ControlBar = ({
                 deviceId: device.deviceId,
             }));
             return cameras;
-        } catch (error) {
+        } catch {
             // Enumerate devices failed
         }
     };

@@ -42,7 +42,7 @@ export const useReplayBuffer = (bufferSeconds = 30) => {
         };
 
         // Restart recorder every bufferDuration seconds to manage memory
-        const restartRecorder = () => {
+        const _restartRecorder = () => {
             if (recorderRef.current?.state === 'recording') {
                 recorderRef.current.stop();
             }

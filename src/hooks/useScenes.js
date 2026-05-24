@@ -56,7 +56,7 @@ export const useScenes = () => {
         try {
             const saved = localStorage.getItem('screenstudio_scenes');
             if (saved) return JSON.parse(saved);
-        } catch {}
+        } catch { /* json parse */ }
         return DEFAULT_SCENES.map(s => ({
             id: `scene_${++sceneIdCounter}`,
             ...s,
@@ -69,7 +69,7 @@ export const useScenes = () => {
     const activeScene = scenes.find(s => s.id === activeSceneId) || scenes[0];
 
     const persist = useCallback((updated) => {
-        try { localStorage.setItem('screenstudio_scenes', JSON.stringify(updated)); } catch {}
+        try { localStorage.setItem('screenstudio_scenes', JSON.stringify(updated)); } catch { /* storage full */ }
     }, []);
 
     const addScene = useCallback((name = 'New Scene', color = '#8b5cf6') => {

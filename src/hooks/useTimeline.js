@@ -40,13 +40,21 @@ export const useTimeline = () => {
     const undoStack = useRef([]);
     const redoStack = useRef([]);
     const isUndoRedo = useRef(false);
+    const [canUndo, setCanUndo] = useState(false);
+    const [canRedo, setCanRedo] = useState(false);
+
+    const updateUndoRedoState = useCallback(() => {
+        setCanUndo(undoStack.current.length > 0);
+        setCanRedo(redoStack.current.length > 0);
+    }, []);
 
     const pushUndo = useCallback((clipsState, tracksState) => {
         if (isUndoRedo.current) return;
         undoStack.current.push({ clips: JSON.parse(JSON.stringify(clipsState)), tracks: JSON.parse(JSON.stringify(tracksState)) });
         if (undoStack.current.length > MAX_UNDO) undoStack.current.shift();
         redoStack.current = [];
-    }, []);
+        updateUndoRedoState();
+    }, [updateUndoRedoState]);
 
     const undo = useCallback(() => {
         if (undoStack.current.length === 0) return;
@@ -58,7 +66,8 @@ export const useTimeline = () => {
         const maxEnd = Math.max(...snapshot.clips.map(c => c.startTime + c.duration), 0);
         setDuration(maxEnd);
         isUndoRedo.current = false;
-    }, [clips, tracks]);
+        updateUndoRedoState();
+    }, [clips, tracks, updateUndoRedoState]);
 
     const redo = useCallback(() => {
         if (redoStack.current.length === 0) return;
@@ -70,7 +79,8 @@ export const useTimeline = () => {
         const maxEnd = Math.max(...snapshot.clips.map(c => c.startTime + c.duration), 0);
         setDuration(maxEnd);
         isUndoRedo.current = false;
-    }, [clips, tracks]);
+        updateUndoRedoState();
+    }, [clips, tracks, updateUndoRedoState]);
 
     const updateDuration = useCallback((updatedClips) => {
         const maxEnd = Math.max(...updatedClips.map(c => c.startTime + c.duration), 0);
@@ -352,6 +362,6 @@ export const useTimeline = () => {
         addKeyframe, removeKeyframe, getKeyframedValue,
         play, pause, stop, seek,
         renderFrame,
-        undo, redo, canUndo: undoStack.current.length > 0, canRedo: redoStack.current.length > 0,
+        undo, redo, canUndo, canRedo,
     };
 };

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { storageManager } from '../utils/StorageManager';
+// storageManager used indirectly via file system operations
 
 export const useRecording = ({
     screenStream,
@@ -129,7 +129,7 @@ export const useRecording = ({
             mediaRecorder.start(1000); // 1s slice is more standard/stable
             setIsRecording(true);
             setStatus('recording');
-        } catch (err) {
+        } catch {
             setStatus('error');
         } finally {
             isStartingRef.current = false;

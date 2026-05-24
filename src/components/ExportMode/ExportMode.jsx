@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { YouTubeUploadModal } from '../Modals/YouTubeUploadModal';
 import { useYouTube } from '../../hooks/useYouTube';
 import './ExportMode.css';

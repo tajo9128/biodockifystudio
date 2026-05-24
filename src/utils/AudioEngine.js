@@ -274,7 +274,7 @@ export class AudioEngine {
         return this.bufferToBlob(rendered, blob.type);
     }
 
-    bufferToBlob(audioBuffer, mimeType) {
+    bufferToBlob(audioBuffer, _mimeType) {
         const numChannels = audioBuffer.numberOfChannels;
         const sampleRate = audioBuffer.sampleRate;
         const length = audioBuffer.length;

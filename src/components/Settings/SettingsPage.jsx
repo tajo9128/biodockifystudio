@@ -40,7 +40,7 @@ export const SettingsPage = () => {
                     setOllamaStatus('connected');
                     return;
                 }
-            } catch {}
+            } catch { /* Ollama not available */ }
         }
         setOllamaStatus('disconnected');
         setOllamaModels([]);

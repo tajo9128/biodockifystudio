@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { ControlBar } from '../Controls/ControlBar';
 import { PreviewStage } from '../Preview/PreviewStage';
 import { WelcomeModal } from '../WelcomeModal/WelcomeModal';
@@ -9,7 +9,6 @@ import { useCursorFx } from '../../hooks/useCursorFx';
 import { useZoom } from '../../hooks/useZoom';
 import { useAudioLevel } from '../../hooks/useAudioLevel';
 import { useFileSystem } from '../../hooks/useFileSystem';
-import { BACKGROUND_PRESETS } from '../../constants/backgrounds';
 import './RecordMode.css';
 
 export const RecordMode = () => {

@@ -43,6 +43,25 @@ export const useStreaming = () => {
         else if (p === 'twitch') setRtmpUrl('rtmp://live.twitch.tv/app');
     }, [setRtmpUrl]);
 
+    const stopStream = useCallback(() => {
+        if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+            recorderRef.current.stop();
+        }
+        if (wsRef.current) {
+            wsRef.current.send(JSON.stringify({ type: 'stop' }));
+            wsRef.current.close();
+            wsRef.current = null;
+        }
+        if (statsIntervalRef.current) {
+            clearInterval(statsIntervalRef.current);
+            statsIntervalRef.current = null;
+        }
+        recorderRef.current = null;
+        setIsStreaming(false);
+        setIsConnecting(false);
+        setStreamStats({ bitrate: 0, fps: 0, droppedFrames: 0, uptime: 0, bytesSent: 0 });
+    }, []);
+
     const startStream = useCallback(async (canvas, audioStream) => {
         if (isStreaming) return;
         if (!streamKey) {
@@ -135,26 +154,7 @@ export const useStreaming = () => {
             setStreamError(err.message);
             setIsConnecting(false);
         }
-    }, [isStreaming, streamKey, rtmpUrl, relayUrl, resolution, bitrate]);
-
-    const stopStream = useCallback(() => {
-        if (recorderRef.current && recorderRef.current.state !== 'inactive') {
-            recorderRef.current.stop();
-        }
-        if (wsRef.current) {
-            wsRef.current.send(JSON.stringify({ type: 'stop' }));
-            wsRef.current.close();
-            wsRef.current = null;
-        }
-        if (statsIntervalRef.current) {
-            clearInterval(statsIntervalRef.current);
-            statsIntervalRef.current = null;
-        }
-        recorderRef.current = null;
-        setIsStreaming(false);
-        setIsConnecting(false);
-        setStreamStats({ bitrate: 0, fps: 0, droppedFrames: 0, uptime: 0, bytesSent: 0 });
-    }, []);
+    }, [isStreaming, streamKey, rtmpUrl, relayUrl, resolution, bitrate, stopStream]);
 
     // Check relay server availability
     const checkRelay = useCallback(async () => {

@@ -92,7 +92,7 @@ export const useSubtitles = () => {
             for (let i = 0; i < event.results.length; i++) {
                 const result = event.results[i];
                 if (result.isFinal) {
-                    const offset = result[0].transcript.length;
+                    const _offset = result[0].transcript.length;
                     newSubtitles.push({
                         start: (startTime + i * 5000) / 1000,
                         end: (startTime + (i + 1) * 5000) / 1000,

@@ -24,13 +24,13 @@ export const EditMode = () => {
     const [activeTool, setActiveTool] = useState(null);
     const [rightPanelOpen, setRightPanelOpen] = useState(false);
     const [activeFilters, setActiveFilters] = useState([]);
-    const [cursorFxEnabled, setCursorFxEnabled] = useState(false);
+    const [cursorFxEnabled, _setCursorFxEnabled] = useState(false);
     const [annotationEnabled, setAnnotationEnabled] = useState(false);
-    const [zoomEnabled, setZoomEnabled] = useState(false);
-    const [activeBg, setActiveBg] = useState('none');
-    const [webcamShape, setWebcamShape] = useState('circle');
-    const [webcamScale, setWebcamScale] = useState(0.25);
-    const [screenScale, setScreenScale] = useState(1.0);
+    const [zoomEnabled, _setZoomEnabled] = useState(false);
+    const [activeBg, _setActiveBg] = useState('none');
+    const [webcamShape, _setWebcamShape] = useState('circle');
+    const [webcamScale, _setWebcamScale] = useState(0.25);
+    const [screenScale, _setScreenScale] = useState(1.0);
     const [aiOpen, setAiOpen] = useState(false);
 
     const timeline = useTimeline();
@@ -38,10 +38,10 @@ export const EditMode = () => {
     const { drawCursorFx } = useCursorFx(canvasRef, cursorFxEnabled);
     const { applyZoom, restoreZoom } = useZoom(canvasRef, zoomEnabled);
     const ai = useAI();
-    const overlays = useOverlays();
+    const _overlays = useOverlays();
     const streams = useStreams();
     const recording = useRecording();
-    const audioLevel = useAudioLevel(streams.audioStream);
+    const _audioLevel = useAudioLevel(streams.audioStream);
 
     const selectedClip = timeline.clips.find(c => c.id === timeline.selectedClipId);
 
@@ -57,7 +57,7 @@ export const EditMode = () => {
         else setAnnotationEnabled(false);
     }, []);
 
-    const handleAICommand = useCallback((command) => {
+    const _handleAICommand = useCallback((command) => {
         // Execute AI commands using timeline
         if (command.action === 'split') timeline.splitAtPlayhead();
         else if (command.action === 'delete' && command.clipId) timeline.removeClip(command.clipId);
@@ -102,11 +102,8 @@ export const EditMode = () => {
                     onClose={() => { setRightPanelOpen(false); setActiveTool(null); }}
                     activeTool={activeTool}
                     selectedClip={selectedClip}
-                    onUpdateClip={timeline.updateClip}
                     activeFilters={activeFilters}
                     setActiveFilters={setActiveFilters}
-                    keyframes={selectedClip?.keyframes}
-                    onAddKeyframe={timeline.addKeyframe}
                     onRemoveKeyframe={timeline.removeKeyframe}
                 />
             </div>

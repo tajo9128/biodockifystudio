@@ -7,10 +7,7 @@ export const useAudioLevel = (audioStream) => {
     const animFrameRef = useRef(null);
 
     useEffect(() => {
-        if (!audioStream) {
-            setLevel(0);
-            return;
-        }
+        if (!audioStream) return;
 
         try {
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -37,7 +34,7 @@ export const useAudioLevel = (audioStream) => {
             };
 
             update();
-        } catch (e) {
+        } catch {
             // AudioContext not available
         }
 

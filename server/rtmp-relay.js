@@ -16,6 +16,22 @@ const server = http.createServer((req, res) => {
     res.end();
 });
 
+const ALLOWED_RTMP_HOSTS = [
+    'a.rtmp.youtube.com',
+    'b.rtmp.youtube.com',
+    'contribute.live-video.net', // Twitch
+    'live.twitch.tv',
+];
+
+function isValidRtmpUrl(url) {
+    try {
+        const parsed = new URL(url);
+        return parsed.protocol === 'rtmp:' && ALLOWED_RTMP_HOSTS.some(h => parsed.hostname === h || parsed.hostname.endsWith('.' + h));
+    } catch {
+        return false;
+    }
+}
+
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
@@ -29,6 +45,16 @@ wss.on('connection', (ws) => {
             try {
                 config = JSON.parse(data);
                 if (config.type === 'config') {
+                    // Validate RTMP URL
+                    if (!config.rtmpUrl) {
+                        ws.send(JSON.stringify({ type: 'error', error: 'Missing RTMP URL' }));
+                        return;
+                    }
+                    if (!isValidRtmpUrl(config.rtmpUrl)) {
+                        ws.send(JSON.stringify({ type: 'error', error: 'RTMP URL not in allowlist. Add your host to ALLOWED_RTMP_HOSTS in server/rtmp-relay.js' }));
+                        return;
+                    }
+
                     console.log('Stream config:', config.rtmpUrl?.split('/').pop() ? '(key set)' : '(no key)');
                     console.log(`Resolution: ${config.resolution}, Bitrate: ${config.bitrate}`);
 

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { SceneSwitcher } from '../Scenes/SceneSwitcher';
 import { StreamPanel } from './StreamPanel';
 import { MixerPanel } from '../Audio/MixerPanel';
@@ -149,7 +149,7 @@ export const StreamMode = () => {
                 onStartStream={streaming.startStream}
                 onStopStream={streaming.stopStream}
                 onCheckRelay={streaming.checkRelay}
-                canvasRef={canvasRef.current}
+                canvasRef={canvasRef}
                 audioStream={streams.audioStream}
             />
 

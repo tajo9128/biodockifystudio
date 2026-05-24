@@ -1,8 +1,8 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { storageManager } from '../utils/StorageManager';
 import { getFileSignature } from '../utils/FileUtils';
 
-export const useFileSystem = (showToast, setHighlightedFile) => {
+export const useFileSystem = (showToast, _setHighlightedFile) => {
     const [directoryHandle, setDirectoryHandle] = useState(null);
     const [isHandleAuthorized, setIsHandleAuthorized] = useState(false);
     const [libraryFiles, setLibraryFiles] = useState([]);
@@ -66,7 +66,7 @@ export const useFileSystem = (showToast, setHighlightedFile) => {
                 const videoFile = await videoHandle.getFile();
                 await generateThumbnail(videoFile, videoName, dirHandle || directoryHandle);
             }
-        } catch (err) {
+        } catch {
             // Thumbnail engine error
         } finally {
             setProcessingQueue(prev => {
@@ -122,7 +122,7 @@ export const useFileSystem = (showToast, setHighlightedFile) => {
             setIsHandleAuthorized(true);
             await storageManager.setSetting('workspace_handle', handle);
             await syncLibrary(handle);
-        } catch (err) {
+        } catch {
             // Folder connection skipped
         }
     };
@@ -135,7 +135,7 @@ export const useFileSystem = (showToast, setHighlightedFile) => {
                 setIsHandleAuthorized(true);
                 await syncLibrary(directoryHandle);
             }
-        } catch (err) {
+        } catch {
             // Permission request failed
         }
     };
@@ -146,7 +146,7 @@ export const useFileSystem = (showToast, setHighlightedFile) => {
             const file = await fileEntry.getFile();
             const url = URL.createObjectURL(file);
             setSelectedVideoUrl(url);
-        } catch (err) {
+        } catch {
             alert('File not found. It may have been moved or deleted.');
             syncLibrary();
         }
@@ -191,7 +191,7 @@ export const useFileSystem = (showToast, setHighlightedFile) => {
                 } else {
                     throw new Error('MOVE_UNSUPPORTED');
                 }
-            } catch (moveErr) {
+            } catch {
                 // Native move() failed, using copy fallback
                 await performManualMove(fileHandle, finalName, directoryHandle);
             }
@@ -224,7 +224,7 @@ export const useFileSystem = (showToast, setHighlightedFile) => {
                         return next;
                     });
                 } catch { /* No thumbnail */ }
-            } catch (err) {
+            } catch {
                 // Thumbnail rename context error
             }
 
@@ -261,7 +261,7 @@ export const useFileSystem = (showToast, setHighlightedFile) => {
 
             showToast('Success', 'Recording deleted from disk', 'success');
             syncLibrary();
-        } catch (err) {
+        } catch {
             // Delete failed
             showToast('Error', 'Failed to delete file', 'error');
         }

@@ -34,7 +34,7 @@ export const SourcePanel = ({ scene, onAddSource, onRemoveSource, onUpdateSource
                 <button className="btn-icon-bg" onClick={onClose}>x</button>
             </div>
             <div className="source-panel-body">
-                {scene.sources?.map((source, i) => (
+                {scene.sources?.map((source, _i) => (
                     <div key={source.id} className={`source-item ${editingId === source.id ? 'editing' : ''}`}>
                         <div className="source-item-row">
                             <span className="source-item-icon">

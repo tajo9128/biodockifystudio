@@ -6,13 +6,11 @@ export const RightPanel = ({
     isOpen, onClose,
     activeTool,
     // Clip properties
-    selectedClip, onUpdateClip,
+    selectedClip,
     // Filter panel props
     activeFilters, setActiveFilters,
-    // Transition props
-    transitions,
     // Keyframe props
-    keyframes, onAddKeyframe, onRemoveKeyframe,
+    onRemoveKeyframe,
 }) => {
     if (!isOpen) return null;
 

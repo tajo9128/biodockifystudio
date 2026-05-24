@@ -2,9 +2,6 @@ import React, { useRef, useEffect, useState } from 'react';
 import './MixerPanel.css';
 
 export const MixerPanel = ({ isOpen, onClose, scenes, activeSceneId, onUpdateSource }) => {
-    const [levels, setLevels] = useState({}); // sourceId → { peak, rms }
-    const analyserRef = useRef({});
-
     const activeScene = scenes?.find(s => s.id === activeSceneId);
     if (!isOpen || !activeScene) return null;
 
@@ -48,7 +45,7 @@ const MixerChannel = ({ source, onVolumeChange, onMuteToggle }) => {
 
     // Simulate level meter animation
     useEffect(() => {
-        if (source.audio?.muted) { setLevel(0); return; }
+        if (source.audio?.muted) return;
         const tick = () => {
             setLevel(Math.random() * (source.audio?.volume || 100));
             animRef.current = requestAnimationFrame(tick);

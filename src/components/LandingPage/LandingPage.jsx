@@ -23,7 +23,7 @@ const LandingPage = () => {
                     localStorage.setItem('gh_stars', data.stargazers_count);
                     localStorage.setItem('gh_stars_time', Date.now());
                 }
-            } catch (error) {
+            } catch {
                 // GitHub API unavailable
             }
         };

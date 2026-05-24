@@ -5,7 +5,7 @@ export const useAnnotation = (canvasRef, enabled) => {
     const [color, setColor] = useState('#ef4444');
     const [strokeWidth, setStrokeWidth] = useState(3);
     const [history, setHistory] = useState([]);
-    const [redoStack, setRedoStack] = useState([]);
+    const [, setRedoStack] = useState([]);
     const currentPath = useRef([]);
     const isDrawing = useRef(false);
     const startPos = useRef({ x: 0, y: 0 });
@@ -19,7 +19,7 @@ export const useAnnotation = (canvasRef, enabled) => {
         overlay.width = mainCanvas.width;
         overlay.height = mainCanvas.height;
         overlayCanvasRef.current = overlay;
-    }, [enabled, canvasRef.current?.width, canvasRef.current?.height]);
+    }, [enabled, canvasRef]);
 
     const getPos = useCallback((e) => {
         const canvas = canvasRef.current;
@@ -129,7 +129,7 @@ export const useAnnotation = (canvasRef, enabled) => {
                     ctx.rect(item.x, item.y, item.w, item.h);
                     ctx.stroke();
                     break;
-                case 'arrow':
+                case 'arrow': {
                     const angle = Math.atan2(item.y2 - item.y1, item.x2 - item.x1);
                     const headLen = 15;
                     ctx.beginPath();
@@ -143,6 +143,7 @@ export const useAnnotation = (canvasRef, enabled) => {
                     ctx.lineTo(item.x2 - headLen * Math.cos(angle + Math.PI / 6), item.y2 - headLen * Math.sin(angle + Math.PI / 6));
                     ctx.stroke();
                     break;
+                }
                 case 'text':
                     ctx.font = `${item.strokeWidth * 6}px sans-serif`;
                     ctx.fillText(item.text, item.x, item.y);

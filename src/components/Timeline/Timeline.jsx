@@ -240,7 +240,7 @@ export const Timeline = ({
         <div className="timeline-container" ref={containerRef} onWheel={handleWheel}>
             {/* Track headers */}
             <div className="tl-track-headers">
-                {tracks.map((track, i) => (
+                {tracks.map((track, _i) => (
                     <div key={track.id} className="tl-track-header" style={{ height: TRACK_HEIGHT }}>
                         <span className="tl-track-name">{track.name}</span>
                         <div className="tl-track-controls">
@@ -265,7 +265,7 @@ export const Timeline = ({
                     {renderTimeMarkers()}
                 </div>
                 <div className="tl-tracks" style={{ width: totalWidth }}>
-                    {tracks.map((track, i) => (
+                    {tracks.map((track, _i) => (
                         <div key={track.id} className="tl-track-lane" style={{ height: TRACK_HEIGHT }} />
                     ))}
                 </div>

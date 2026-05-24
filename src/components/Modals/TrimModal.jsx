@@ -14,15 +14,14 @@ export const TrimModal = ({ blob, mimeType, onTrimmed, onCancel }) => {
     const [trimEnd, setTrimEnd] = useState(0);
     const [isProcessing, setIsProcessing] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
+    const [videoSrc, setVideoSrc] = useState(() => blob ? URL.createObjectURL(blob) : null);
     const videoRef = useRef(null);
-    const videoUrl = useRef(null);
 
     useEffect(() => {
         if (!blob) return;
-        videoUrl.current = URL.createObjectURL(blob);
-        return () => {
-            if (videoUrl.current) URL.revokeObjectURL(videoUrl.current);
-        };
+        const url = URL.createObjectURL(blob);
+        setVideoSrc(url);
+        return () => URL.revokeObjectURL(url);
     }, [blob]);
 
     const handleLoadedMetadata = () => {
@@ -108,7 +107,7 @@ export const TrimModal = ({ blob, mimeType, onTrimmed, onCancel }) => {
                 <div className="trim-preview">
                     <video
                         ref={videoRef}
-                        src={videoUrl.current}
+                        src={videoSrc}
                         onLoadedMetadata={handleLoadedMetadata}
                         onTimeUpdate={handleTimeUpdate}
                         controls={false}

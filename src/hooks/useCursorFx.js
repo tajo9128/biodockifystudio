@@ -41,7 +41,7 @@ export const useCursorFx = (canvasRef, enabled) => {
         return () => clearInterval(timer);
     }, [clicks.length]);
 
-    const drawCursorFx = useCallback((ctx, canvasWidth, canvasHeight) => {
+    const drawCursorFx = useCallback((ctx, _canvasWidth, _canvasHeight) => {
         if (!enabled) return;
 
         // Cursor highlight circle

@@ -62,11 +62,11 @@ export const useZoom = (canvasRef, enabled) => {
         };
     }, [canvasRef, enabled, zoomLevel]);
 
-    // Reset when disabled
+    // Reset when disabled — only call setState if values actually differ
     useEffect(() => {
         if (!enabled) {
-            setZoomLevel(1);
-            setPanOffset({ x: 0, y: 0 });
+            setZoomLevel(prev => prev !== 1 ? 1 : prev);
+            setPanOffset(prev => (prev.x !== 0 || prev.y !== 0) ? { x: 0, y: 0 } : prev);
         }
     }, [enabled]);
 

@@ -129,12 +129,12 @@ const ScreenRecorder = () => {
             case 'set_format': { const f = EXPORT_FORMATS.find(fmt => fmt.id.includes(command.format)); if (f) setRecordingFormat(f.id); break; }
             case 'annotate': setAnnotationEnabled(true); break;
             case 'zoom': setZoomEnabled(true); break;
-            case 'start_recording': startRecording(); break;
+            case 'start_recording': startMediaRecording(); break;
             case 'stop_recording': stopRecording(); break;
             case 'pause_recording': pauseRecording(); break;
             case 'resume_recording': resumeRecording(); break;
         }
-    }, [ai, stopRecording, pauseRecording, resumeRecording]);
+    }, [ai, startMediaRecording, stopRecording, pauseRecording, resumeRecording]);
 
     const handleSaveRecording = async (blob, fileName) => {
         if (directoryHandle) {
@@ -171,6 +171,12 @@ const ScreenRecorder = () => {
     const countdownTimerRef = useRef(null);
     const elapsedTimerRef = useRef(null);
 
+    const handleStopAll = useCallback(() => {
+        if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+        setCountdown(null); setElapsedTime(0);
+        resetRecording(); stopStreams(); setActiveBg('none'); setScreenScale(1.0);
+    }, [resetRecording, stopStreams]);
+
     useEffect(() => {
         screenVideoRef.current = document.createElement('video');
         screenVideoRef.current.muted = true;
@@ -195,12 +201,6 @@ const ScreenRecorder = () => {
     useEffect(() => { if (!isRecording) setElapsedTime(0); }, [isRecording]);
 
     const formatTime = (s) => `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
-
-    const handleStopAll = () => {
-        if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
-        setCountdown(null); setElapsedTime(0);
-        resetRecording(); stopStreams(); setActiveBg('none'); setScreenScale(1.0);
-    };
 
     const [currentDimensions, setCurrentDimensions] = useState({ width: 0, height: 0 });
 

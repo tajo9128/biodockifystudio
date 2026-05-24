@@ -48,7 +48,7 @@ export const StreamPanel = ({
 }) => {
     const [relayStatus, setRelayStatus] = useState('unchecked');
     const [showKey, setShowKey] = useState(false);
-    const [configuring, setConfiguring] = useState(!streamKey);
+    const [, setConfiguring] = useState(!streamKey);
 
     const handleCheckRelay = async () => {
         setRelayStatus('checking');
