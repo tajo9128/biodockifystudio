@@ -1,361 +1,242 @@
 <p align="center">
-  <strong>ScreenStudio</strong>
+  <img src="public/favicon.svg" width="80" alt="ScreenStudio Logo">
+</p>
+
+<h1 align="center">ScreenStudio</h1>
+
+<p align="center">
+  <strong>Record. Edit. Stream. Export. &mdash; All in your browser.</strong>
 </p>
 
 <p align="center">
-  The perfect hybrid of <strong>OBS Studio</strong> + <strong>Loom</strong> + <strong>Kdenlive</strong> — all in your browser.
+  Free &bull; Open Source &bull; Docker-Ready &bull; AI-Powered &bull; No Install Required
 </p>
 
 <p align="center">
-  Free &bull; Open Source &bull; Docker-Ready &bull; AI-Powered
+  <a href="https://github.com/tajo9128/screenstudio/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
+  <img src="https://img.shields.io/badge/platform-Chrome%20%7C%20Edge%20%7C%20Firefox-brightgreen" alt="Platforms">
+  <img src="https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white" alt="Docker Ready">
 </p>
 
 ---
 
 ## What is ScreenStudio?
 
-ScreenStudio combines the best of three worlds into one seamless browser-based application:
+ScreenStudio is a **browser-based screen recorder, video editor, and live streamer** &mdash; no downloads, no installs, no accounts required. It runs entirely in your browser, or as a Docker container on your server.
 
-| From **OBS Studio** | From **Loom** | From **Kdenlive** |
+| | Feature | Details |
 |---|---|---|
-| Scene composition | One-click recording | Multi-track timeline |
-| Live streaming (RTMP) | Instant shareable links | 33 video filters |
-| Audio mixer per source | Webcam overlay (PiP) | 13 transitions |
-| Replay buffer | Cloud-ready export | Keyframe animation |
-| Virtual camera concepts | Browser-native (no install) | Audio effects & EQ |
-| Multi-source compositing | YouTube direct upload | Unlimited tracks |
-| Stream to YouTube Live | Folder auto-save | Speed ramping |
+| **Record** | Screen + Webcam + Audio | One-click capture with PiP overlay, cursor effects, annotations |
+| **Edit** | Multi-track timeline | Split, trim, move clips. 33 filters, 13 transitions, keyframes |
+| **Stream** | YouTube Live / Twitch | RTMP relay with FFmpeg, scene composition, real-time stats |
+| **Export** | YouTube upload + local download | OAuth flow, AI-generated metadata, resumable upload |
+| **AI** | 3-tier assistant | Regex commands, Ollama (local LLM), paid API fallback |
 
 ---
 
-## 6 Modes, 1 App
+## Quick Start
 
-```
-[ Record ]  [ Edit ]  [ Stream ]  [ Webinar ]  [ Export ]  [ Settings ]
+### Option 1: Docker (Recommended)
+
+```bash
+# Pull and run
+docker run -p 3000:80 tajo9128/screenstudio:v1.0.0
+
+# Open http://localhost:3000
 ```
 
-### Record Mode
-> *Loom-quality recording with OBS-level control*
+### Option 2: Docker Compose (Full Stack)
+
+```bash
+# Clone the repo
+git clone https://github.com/tajo9128/screenstudio.git
+cd screenstudio
+
+# Start everything (app + RTMP relay for streaming)
+docker compose -f docker-compose.full.yml up -d
+
+# Open http://localhost:3000
+```
+
+### Option 3: Development
+
+```bash
+git clone https://github.com/tajo9128/screenstudio.git
+cd screenstudio
+npm install
+npm run dev
+
+# Open http://localhost:3000
+```
+
+---
+
+## Docker Images
+
+| Image | Description | Tag |
+|---|---|---|
+| `tajo9128/screenstudio` | Frontend (Nginx) | `v1.0.0` |
+| `tajo9128/screenstudio-relay` | RTMP relay server | `v1.0.0` |
+
+### Docker Compose Files
+
+| File | Use Case |
+|---|---|
+| `docker-compose.yml` | Base app (Ollama on host machine) |
+| `docker-compose.desktop.yml` | Docker Desktop (Ollama on host) |
+| `docker-compose.vps.yml` | VPS with Ollama in container |
+| `docker-compose.full.yml` | Full stack: App + Ollama + RTMP Relay |
+
+---
+
+## 6 Modes
+
+### 1. Record
+
+> One-click screen recording with professional features
 
 - Screen / Window / Tab capture
-- Webcam overlay with circle, rounded-rect, or square shape
-- System audio + microphone
-- Source selector: Full Screen, Window, Browser Tab
-- Adjustable webcam scale (S/M/L) and screen scale
-- Background presets and drag-to-reposition webcam
-- Countdown timer before recording
+- Webcam overlay (circle, rounded-rect, square shapes)
+- System audio + microphone recording
 - Cursor highlight + click ripple effects
 - Real-time annotations (pen, line, rectangle, arrow, text)
-- Zoom (1x-5x) with scroll wheel + pan
-- Auto-save to selected folder (File System Access API)
-- Quality presets: 720p / 1080p / 2K / Native
-- Format: WebM (VP9/VP8/H264) or MP4 (H264)
+- Zoom (1x&ndash;5x) with scroll wheel + pan
+- Auto-save to selected folder
+- Quality: 720p / 1080p / 2K / Native
+- Format: WebM (VP9/VP8/H264) or MP4
 
-### Edit Mode
-> *Kdenlive-level editing with a modern UI*
+### 2. Edit
+
+> Multi-track timeline with 33 filters and 13 transitions
 
 **Timeline:**
-- Multi-track timeline with unlimited dynamic tracks
-- Add / remove / rename tracks
-- Per-track mute and lock controls
-- Clip splitting at playhead (S key)
-- Clip moving between tracks (drag)
-- Clip resizing by edge dragging
-- Speed control per clip (0.25x to 4x)
-- Undo / redo (50-snapshot stack)
-- Zoomable timeline (Ctrl+Scroll or +/- buttons)
-- Transport controls: Play, Pause, Stop, Seek
-- Clip context menu: Split, Duplicate, Speed, Filters, Keyframes, Delete
-- Keyboard shortcuts: S=split, Delete=remove, Space=play/pause
+- Unlimited tracks with mute/lock
+- Clip split (S key), move, resize, speed (0.25x&ndash;4x)
+- Undo/redo (50-snapshot stack)
+- Keyboard: Space = play/pause, S = split, Delete = remove
 
-**33 Video Filters (Canvas-based):**
+**33 Video Filters:**
 
 | Color & Tone | Effects | Transform |
 |---|---|---|
-| Brightness | Blur | Mirror |
-| Contrast | Grayscale | Flip |
-| Saturation | Sepia | Rotate |
-| Hue Rotate | Invert | Crop |
-| Temperature | Noise | Vignette |
-| Tint | Pixelate | Opacity |
-| White Balance | Sharpen | Border |
-| Color Grade (3-way) | Emboss | Posterize |
-| Curves (R/G/B) | Charcoal | Lift / Gamma / Gain |
-| Levels | Film Grain | Cartoon |
-| | Old Film | Glow |
-| | Chroma Key (green screen) | |
+| Brightness, Contrast | Blur, Sharpen | Mirror, Flip |
+| Saturation, Hue | Grayscale, Sepia | Rotate, Crop |
+| Temperature, Tint | Noise, Pixelate | Vignette, Opacity |
+| White Balance | Posterize, Cartoon | Border |
+| Color Grade (3-way) | Film Grain, Old Film | Lift/Gamma/Gain |
+| Curves (R/G/B), Levels | Chroma Key (green screen) | Emboss, Glow |
 
 **13 Transitions:**
-Crossfade, Fade to Black, Wipe (Left/Right/Up/Down), Slide Left, Zoom In, Dissolve, Barn Door, Iris, Clock Wipe, Push
+Crossfade, Fade to Black, Wipe (L/R/U/D), Slide, Zoom, Dissolve, Barn Door, Iris, Clock Wipe, Push
 
-**Keyframe Animation System:**
-- Add/remove keyframes per filter parameter
-- Interpolation: Linear, Ease-In, Ease-Out, Ease-In-Out
-- Visual keyframe dots on clips in timeline
-- Parameter animation over time
+**Keyframe Animation:**
+- Per-parameter keyframes with interpolation (Linear, Ease-In/Out)
+- Visual keyframe dots on timeline clips
 
-**14 Audio Effects (Web Audio API):**
+**14 Audio Effects:**
+Noise Gate, De-Esser, Limiter, Compressor, 3-Band EQ, High/Low-Pass, Delay/Echo, Reverb, Chorus, Stereo Widener, Fade In/Out
 
-| Dynamics | EQ / Filters | Time / Modulation |
-|---|---|---|
-| Noise Gate | High-Pass Filter | Delay / Echo |
-| De-Esser | Low-Pass Filter | Reverb (convolution) |
-| Limiter | 3-Band EQ (Low/Mid/High) | Chorus |
-| Compressor | | Stereo Widener |
-| Volume + Fade In/Out | | |
+### 3. Stream
 
-**Audio Scopes:**
-- Real-time waveform visualization
-- Frequency spectrum (64-band bar graph)
-- Luminance histogram
+> Live stream to YouTube Live or Twitch from your browser
 
-**Title Templates:**
-- Lower Third (professional name/title bar)
-- End Card (closing call-to-action)
-- Chapter Marker (section break overlay)
-- Title Card (centered text on dark background)
-- Watermark (semi-transparent corner overlay)
+- RTMP relay with automatic reconnection (3 retries)
+- Platform presets: YouTube Live, Twitch, Custom RTMP
+- Configurable bitrate (2.5&ndash;12 Mbps) and resolution (720p/1080p/1440p)
+- Real-time stats: uptime, bitrate, FPS, bytes sent
+- Scene composition during stream
+- Simultaneous record + stream
 
-**Other Editing Features:**
-- Trim with audio preservation (Web Audio API extraction)
-- Auto subtitles via Ollama Whisper or Web Speech API fallback
-- Chroma key (green screen removal with HSV distance + alpha)
-- Proxy editing (360p for smooth editing, full-res on export)
-- Text overlays with fade in/out, rotation, shadow
-- Draw annotations (pen, line, rect, arrow, text)
+### 4. Webinar
 
-### Stream Mode
-> *OBS-quality live streaming from the browser*
+> Present with scenes, Q&A, and audience engagement
 
-- **Stream to YouTube Live** via RTMP relay server
-- **Stream to Twitch** or any custom RTMP endpoint
-- Platform selector: YouTube / Twitch / Custom
-- Stream key configuration with show/hide toggle
-- Bitrate control (2.5 Mbps to 12 Mbps)
-- Resolution: 720p / 1080p / 1440p
-- Real-time stream stats: uptime, bitrate, FPS, bytes sent
-- Live indicator badge with pulse animation
-- Relay server health check
-- WebSocket-based media transport to RTMP bridge
-- Scene composition during streaming (switch layouts live)
-- All 33 filters and 13 transitions work during stream
+- 4 default scenes (Screen Only, Camera+Screen PiP, Full Camera, Side-by-Side)
+- Lower Third name/title overlay
+- Audio mixer with per-source volume
+- Replay buffer (15s/30s/60s)
 
-**Docker RTMP Relay:**
-```
-Browser (MediaRecorder) → WebSocket → rtmp-relay (FFmpeg) → YouTube Live
-```
+### 5. Export
 
-### Webinar Mode
-> *Present and engage with your audience — OBS scene composition + Loom simplicity*
+> Download or upload your recording
 
-**Layout:**
-- Full-screen canvas with scene composition
-- Scene switcher strip (click to switch layouts live)
-- Camera + Screen side-by-side preset
-- Lower Third name/title overlay with live editing
-
-**Features:**
-- **Scene Composition** — 4 default scenes:
-  - Screen Only (full-screen capture)
-  - Camera + Screen PiP (picture-in-picture)
-  - Full Camera (presenter-focused)
-  - Screen + Webcam Side (split layout)
-- **Lower Third** — Professional name/title bar, editable in real-time
-- **Q&A Overlay** — Show audience questions on screen with answers
-- **Audio Mixer** — Per-source volume, mute, real-time level meters
-- **Source Management** — Add/remove/reorder sources per scene
-- **Record + Stream simultaneously** — Record locally while streaming to YouTube Live
-- **Replay Buffer** — Save last N seconds on hotkey (15s/30s/60s)
-- **Live indicator** — Pulse badge showing stream/recording status
-
-**Source Types:**
-Screen, Camera, Text overlay, Color background, Image
-
-**Perfect for:**
-- Webinars with screen sharing + camera
-- Live coding sessions
-- Product demos with presenter overlay
-- Online teaching with slides + face cam
-
-### Export Mode
-> *One-click export with format/quality control*
-
-- Format selector: WebM (VP9), MP4 (H264), MKV
+- Format selection: WebM, MP4, MKV
 - Quality presets: 720p / 1080p / 2K
-- Direct download to local machine
-- **YouTube upload** via Google Identity Services OAuth + YouTube Data API v3
-  - Resumable upload with progress bar
-  - AI-generated metadata (title, description, tags)
-  - Privacy: Public / Unlisted / Private
-  - 7 category options
-  - Client ID setup flow (user provides their own)
-- MP4 conversion via FFmpeg.wasm (planned)
+- Direct YouTube upload with OAuth
+- AI-generated metadata (title, description, tags)
 
-### Settings Page
-> *Configure everything in one place*
+### 6. Settings
 
-**Recording Defaults:**
-- Default quality (720p / 1080p / 1440p)
-- Default format (WebM / MP4 / MKV)
-
-**Editing Preferences:**
-- Default transition type
-- Timeline snap on/off
-- Auto-save on/off
-
-**AI Provider:**
-- Ollama connection status + model selector (auto-detects local models)
-- Paid API: OpenAI / Anthropic / Custom endpoint
-- API key storage (localStorage)
-- API endpoint URL
-- Model name
-
-**YouTube Upload:**
-- Google Cloud OAuth Client ID
+> Configure AI providers, recording defaults, and YouTube OAuth
 
 ---
 
-## 3-Tier AI Assistant
+## AI Assistant
 
 A floating AI assistant available in Edit and Stream modes.
 
 ```
-Tier 1: Local Regex     → Instant, no LLM needed
-Tier 2: Ollama (free)   → Local LLM, runs on your machine
-Tier 3: Paid API        → OpenAI / Anthropic / any OpenAI-compatible
+Tier 1: Regex Commands  -->  Instant, no LLM needed (17 commands)
+Tier 2: Ollama (Free)   -->  Local LLM on your machine
+Tier 3: Paid API        -->  OpenAI / Anthropic / any OpenAI-compatible API
 ```
 
-**17 AI Commands (local regex, instant):**
-- Trim, Zoom, Title, Cursor effects, Annotations
-- Quality/Format selection, Recording control
-- Filter apply/remove, Text overlay, Speed control
-- Help, Export, Thumbnail, Description
-
-**Ollama Integration:**
-- Auto-discovers running Ollama instances (Docker proxy or localhost)
-- Model selector from available models
-- System prompt with editing context
-- JSON command parsing with fallback regex
-
-**Paid API Fallback:**
-- Falls back to OpenAI/Anthropic when Ollama is offline
-- Configurable endpoint, key, and model
-- Temperature 0.1, max 300 tokens
+**Supported Commands:** Trim, Zoom, Title, Cursor, Annotations, Quality, Format, Filter, Text, Speed, Export, Help
 
 ---
 
-## Docker Deployment
+## Browser Support
 
-### Quick Start (Docker Desktop)
-```bash
-docker-compose up --build
-# Open http://localhost:3000
-```
+| Browser | Recording | Editing | Streaming |
+|---|---|---|---|
+| Chrome 90+ | Full | Full | Full |
+| Edge 90+ | Full | Full | Full |
+| Firefox 90+ | Full | Full | Full |
+| Safari 17+ | Partial | Partial | No |
 
-### With Ollama (AI)
-```bash
-docker-compose -f docker-compose.vps.yml up --build
-# Includes Ollama service with persistent storage
-```
-
-### With RTMP Relay (Streaming)
-```bash
-docker-compose -f docker-compose.full.yml up --build
-# Includes screenstudio + ollama + rtmp-relay
-```
-
-**4 Compose Files:**
-| File | Use Case |
-|---|---|
-| `docker-compose.yml` | Base app (Ollama on host) |
-| `docker-compose.desktop.yml` | Docker Desktop (Ollama on host) |
-| `docker-compose.vps.yml` | VPS with Ollama in container |
-| `docker-compose.full.yml` | Full stack: ScreenStudio + Ollama + RTMP Relay (streaming) |
+> Screen capture requires `getDisplayMedia` API. Safari has limited support.
 
 ---
 
-## Architecture
+## Tech Stack
 
-```
-┌─────────────────────────────────────────────────────┐
-│                   TopBar (48px)                       │
-│   Logo  |  Record  Edit  Stream  Export  |  Settings  │
-├─────────────────────────────────────────────────────┤
-│        │                            │                │
-│ Tool   │      Canvas / Preview      │   Right        │
-│ Side   │      (composited)          │   Panel        │
-│ bar    │                            │   (filters,    │
-│ (56px) │                            │    properties) │
-│        │                            │                │
-├────────┴────────────────────────────┴────────────────┤
-│              Timeline / Controls (200px)              │
-│   tracks | clips | transport | zoom | scopes         │
-├─────────────────────────────────────────────────────┤
-│            [AI Floating Button]  ↘                    │
-│            [AI Chat Drawer]                          │
-└─────────────────────────────────────────────────────┘
-```
-
-**Tech Stack:**
-- React 19 + React Router 7
-- Vite 7 (dev server on port 3000)
-- Web Audio API (audio effects, mixing, analysis)
-- Canvas API (filters, transitions, compositing)
-- MediaRecorder API (recording, streaming)
-- File System Access API (folder selection)
-- Google Identity Services (YouTube OAuth)
-- YouTube Data API v3 (resumable upload)
-- WebSockets (streaming relay)
-- Docker + Nginx (deployment)
+- **Frontend:** React 19 + React Router 7 + Vite 7
+- **Recording:** MediaRecorder API + Canvas API + Web Audio API
+- **Editing:** Canvas compositing, Web Audio offline processing
+- **Streaming:** WebSocket + FFmpeg (RTMP relay server)
+- **AI:** Ollama integration + OpenAI/Anthropic fallback
+- **Deployment:** Docker + Nginx + Node.js
 
 ---
 
-## Feature Comparison
-
-| Feature | OBS Studio | Loom | Kdenlive | **ScreenStudio** |
-|---|---|---|---|---|
-| Screen recording | Native app | Browser | - | **Browser** |
-| Webcam overlay | Yes | Yes | - | **Yes** |
-| Scene composition | Yes | - | - | **Yes** |
-| Live streaming (RTMP) | Yes | - | - | **Yes** |
-| Multi-track timeline | - | - | Yes | **Yes** |
-| Video filters | 50+ | - | 232 | **33** |
-| Audio effects | 10+ | - | 242 | **14** |
-| Transitions | Yes | - | 20+ | **13** |
-| Keyframe animation | - | - | Yes | **Yes** |
-| AI assistant | - | - | - | **Yes** |
-| YouTube upload | - | Yes | - | **Yes** |
-| Shareable links | - | Yes | - | Planned |
-| Install required | Yes | No | Yes | **No** |
-| Docker support | No | N/A | No | **Yes** |
-| Free & open source | Yes | Freemium | Yes | **Yes** |
-
----
-
-## Getting Started
+## Contributing
 
 ```bash
-# Clone
-git clone https://github.com/tajo9128/screenstudio.git
+# Fork, clone, install
+git clone https://github.com/YOUR_USERNAME/screenstudio.git
 cd screenstudio
-
-# Install
 npm install
 
-# Run (port 3000)
+# Create feature branch
+git checkout -b feature/my-feature
+
+# Make changes, test
 npm run dev
-
-# Build
 npm run build
+npm run lint
 
-# Docker
-docker-compose up --build
+# Push and open PR
+git push origin feature/my-feature
 ```
-
-Open **http://localhost:3000** in Chrome/Edge.
 
 ---
 
 ## License
 
-MIT
+[MIT](LICENSE) &mdash; free for personal and commercial use.
+
+---
+
+<p align="center">
+  Made with &hearts; for creators, educators, and streamers worldwide.
+</p>

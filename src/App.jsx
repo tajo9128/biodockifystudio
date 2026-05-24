@@ -19,17 +19,17 @@ function App() {
       <Router>
         <ThemeProvider>
           <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route element={<AppShell />}>
-              <Route path="/recorder" element={<ScreenRecorder />} />
-              <Route path="/editor" element={<EditMode />} />
-              <Route path="/stream" element={<StreamMode />} />
-              <Route path="/webinar" element={<WebinarMode />} />
-              <Route path="/export" element={<ExportMode />} />
-              <Route path="/settings" element={<SettingsPage />} />
-            </Route>
-          </Routes>
-          <Analytics />
+              <Route path="/" element={<LandingPage />} />
+              <Route element={<AppShell />}>
+                <Route path="/recorder" element={<ScreenRecorder />} />
+                <Route path="/editor" element={<EditMode />} />
+                <Route path="/stream" element={<StreamMode />} />
+                <Route path="/webinar" element={<WebinarMode />} />
+                <Route path="/export" element={<ExportMode />} />
+                <Route path="/settings" element={<SettingsPage />} />
+              </Route>
+            </Routes>
+            <Analytics />
         </ThemeProvider>
       </Router>
     </ErrorBoundary>
