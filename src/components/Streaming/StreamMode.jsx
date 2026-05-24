@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { SceneSwitcher } from '../Scenes/SceneSwitcher';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { StreamPanel } from './StreamPanel';
 import { MixerPanel } from '../Audio/MixerPanel';
 import { useScenes } from '../../hooks/useScenes';
@@ -28,6 +29,17 @@ export const StreamMode = () => {
             if (!recording.isRecording && !streaming.isStreaming) streams.stopAll?.();
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Scene switching shortcuts (1-4)
+    useKeyboardShortcuts({
+        'ctrl+shift+r': () => { if (recording.isRecording) recording.stopRecording(); else setShowStreamPanel(prev => !prev); },
+        'ctrl+shift+l': () => setShowStreamPanel(prev => !prev),
+        'ctrl+shift+b': () => { if (replay.isBuffering) replay.stopBuffering?.(); else replay.startBuffering?.(); },
+        '1': () => scenes.scenes?.[0] && scenes.setActiveSceneId(scenes.scenes[0].id),
+        '2': () => scenes.scenes?.[1] && scenes.setActiveSceneId(scenes.scenes[1].id),
+        '3': () => scenes.scenes?.[2] && scenes.setActiveSceneId(scenes.scenes[2].id),
+        '4': () => scenes.scenes?.[3] && scenes.setActiveSceneId(scenes.scenes[3].id),
+    });
 
     // Guard against accidental page close during streaming/recording
     useEffect(() => {

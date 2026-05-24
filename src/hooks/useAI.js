@@ -232,6 +232,86 @@ export const useAI = () => {
         } catch { return null; }
     }, [apiKey, apiEndpoint, model]);
 
+    // Paid API fallback using screenstudio_api_key / screenstudio_api_provider
+    const callPaidFallback = useCallback(async (input, recentMessages) => {
+        const fallbackKey = localStorage.getItem('screenstudio_api_key');
+        const fallbackProvider = localStorage.getItem('screenstudio_api_provider');
+        if (!fallbackKey) return null;
+
+        // Build endpoint from provider name
+        const providerEndpoints = {
+            openai: 'https://api.openai.com/v1/chat/completions',
+            anthropic: 'https://api.anthropic.com/v1/messages',
+            groq: 'https://api.groq.com/openai/v1/chat/completions',
+            together: 'https://api.together.xyz/v1/chat/completions',
+            openrouter: 'https://openrouter.ai/api/v1/chat/completions',
+        };
+        const provider = fallbackProvider || 'openai';
+        const endpoint = providerEndpoints[provider] || providerEndpoints.openai;
+        const isOpenAICompat = provider !== 'anthropic';
+
+        try {
+            const llmMessages = recentMessages.map(m => ({ role: m.role, content: m.content }));
+            llmMessages.push({ role: 'user', content: input });
+
+            const headers = { 'Content-Type': 'application/json' };
+            const modelNames = {
+                openai: 'gpt-4o-mini',
+                anthropic: 'claude-3-5-haiku-20241022',
+                groq: 'llama-3.3-70b-versatile',
+                together: 'meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo',
+                openrouter: 'meta-llama/llama-3.1-8b-instruct',
+            };
+
+            let body;
+            if (isOpenAICompat) {
+                headers['Authorization'] = `Bearer ${fallbackKey}`;
+                body = JSON.stringify({
+                    model: modelNames[provider] || 'gpt-4o-mini',
+                    messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...llmMessages.slice(-8)],
+                    temperature: 0.1,
+                    max_tokens: 500
+                });
+            } else {
+                // Anthropic format
+                headers['x-api-key'] = fallbackKey;
+                headers['anthropic-version'] = '2023-06-01';
+                const systemMsg = SYSTEM_PROMPT;
+                const userMsgs = llmMessages.slice(-8);
+                body = JSON.stringify({
+                    model: modelNames[provider],
+                    max_tokens: 500,
+                    system: systemMsg,
+                    messages: userMsgs
+                });
+            }
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers,
+                body
+            });
+            if (!response.ok) return null;
+            const data = await response.json();
+
+            let content;
+            if (isOpenAICompat) {
+                content = data.choices?.[0]?.message?.content?.trim();
+            } else {
+                // Anthropic response format
+                content = data.content?.[0]?.text?.trim();
+            }
+
+            if (!content) return null;
+            try { return JSON.parse(content); }
+            catch {
+                const jsonMatch = content.match(/\{[^{}]*"action"[^{}]*\}/);
+                if (jsonMatch) { try { return JSON.parse(jsonMatch[0]); } catch { /* json parse fallback */ } }
+                return { action: 'chat', message: content };
+            }
+        } catch { return null; }
+    }, []);
+
     const sendMessage = useCallback(async (input) => {
         if (!input.trim()) return null;
         const userMsg = { role: 'user', content: input };
@@ -275,6 +355,10 @@ export const useAI = () => {
                 }
                 if (!command && apiKey) {
                     command = await callLLM(input, recentMessages);
+                }
+                // Last resort: paid API fallback via screenstudio_api_key
+                if (!command) {
+                    command = await callPaidFallback(input, recentMessages);
                 }
 
                 // Remove the streaming placeholder if we got a command
@@ -359,7 +443,7 @@ export const useAI = () => {
             setIsProcessing(false);
             setIsStreaming(false);
         }
-    }, [messages, parseLocal, callOllama, callLLM, streamOllama, streamLLM, apiKey, ollamaConnected]);
+    }, [messages, parseLocal, callOllama, callLLM, callPaidFallback, streamOllama, streamLLM, apiKey, ollamaConnected]);
 
     // Voice input via Web Speech API
     const startListening = useCallback(() => {

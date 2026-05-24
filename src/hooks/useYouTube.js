@@ -8,6 +8,9 @@ const YOUTUBE_UPLOAD_URL = 'https://www.googleapis.com/upload/youtube/v3/videos?
 const YOUTUBE_CHANNEL_URL = 'https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true';
 const SCOPES = 'https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube';
 
+const TOKEN_MAX_AGE_MS = 50 * 60 * 1000; // 50 minutes (Google tokens expire ~60 min)
+const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
+
 export const useYouTube = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [channelName, setChannelName] = useState('');
@@ -15,6 +18,8 @@ export const useYouTube = () => {
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const tokenRef = useRef(null);
+    const tokenExpiryRef = useRef(null);
+    const tokenClientRef = useRef(null);
 
     const setClientId = useCallback((id) => {
         setClientIdState(id);
@@ -50,6 +55,8 @@ export const useYouTube = () => {
                         return;
                     }
                     tokenRef.current = tokenResponse.access_token;
+                    tokenExpiryRef.current = Date.now();
+                    tokenClientRef.current = tokenClient;
                     setIsAuthenticated(true);
 
                     try {
@@ -73,12 +80,53 @@ export const useYouTube = () => {
             try { window.google?.accounts?.oauth2?.revoke(tokenRef.current); } catch { /* silent */ }
         }
         tokenRef.current = null;
+        tokenExpiryRef.current = null;
+        tokenClientRef.current = null;
         setIsAuthenticated(false);
         setChannelName('');
     }, []);
 
+    const isTokenExpired = useCallback(() => {
+        if (!tokenExpiryRef.current) return true;
+        return Date.now() - tokenExpiryRef.current > TOKEN_MAX_AGE_MS;
+    }, []);
+
+    const refreshToken = useCallback(() => {
+        return new Promise((resolve) => {
+            if (!window.google?.accounts?.oauth2) {
+                resolve(false);
+                return;
+            }
+            const refreshClient = window.google.accounts.oauth2.initTokenClient({
+                client_id: clientId,
+                scope: SCOPES,
+                callback: (tokenResponse) => {
+                    if (tokenResponse.error) {
+                        resolve(false);
+                        return;
+                    }
+                    tokenRef.current = tokenResponse.access_token;
+                    tokenExpiryRef.current = Date.now();
+                    // Update stored client reference for future refreshes
+                    tokenClientRef.current = refreshClient;
+                    resolve(true);
+                },
+            });
+            // prompt:'' = silent refresh if user already consented
+            refreshClient.requestAccessToken({ prompt: '' });
+        });
+    }, [clientId]);
+
     const uploadVideo = useCallback(async (blob, metadata) => {
         if (!tokenRef.current || !blob) return null;
+
+        // Refresh token if expired before starting upload
+        if (isTokenExpired()) {
+            const refreshed = await refreshToken();
+            if (!refreshed) {
+                return { success: false, error: 'Token expired and refresh failed. Please reconnect.' };
+            }
+        }
 
         setIsUploading(true);
         setUploadProgress(0);
@@ -116,38 +164,64 @@ export const useYouTube = () => {
             const uploadUrl = initRes.headers.get('Location');
             if (!uploadUrl) throw new Error('No upload URL returned');
 
-            // Step 2: Upload video blob with progress tracking
-            const result = await new Promise((resolve, reject) => {
-                const xhr = new XMLHttpRequest();
-                xhr.open('PUT', uploadUrl, true);
-                xhr.setRequestHeader('Content-Type', blob.type || 'video/webm');
+            // Step 2: Chunked upload with Content-Range headers
+            const totalSize = blob.size;
+            let offset = 0;
+            let result = null;
 
-                xhr.upload.onprogress = (e) => {
-                    if (e.lengthComputable) {
-                        setUploadProgress(Math.round((e.loaded / e.total) * 100));
-                    }
+            while (offset < totalSize) {
+                const chunkEnd = Math.min(offset + CHUNK_SIZE, totalSize);
+                const chunk = blob.slice(offset, chunkEnd);
+                const isLast = chunkEnd >= totalSize;
+
+                const headers = {
+                    'Content-Type': blob.type || 'video/webm',
+                    'Content-Length': String(chunk.size),
+                    'Content-Range': `bytes ${offset}-${chunkEnd - 1}/${totalSize}`,
                 };
 
-                xhr.onload = () => {
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        try { resolve(JSON.parse(xhr.responseText)); }
-                        catch { reject(new Error('Invalid upload response')); }
-                    } else {
-                        reject(new Error(`Upload failed: ${xhr.status}`));
-                    }
-                };
-                xhr.onerror = () => reject(new Error('Network error during upload'));
-                xhr.send(blob);
-            });
+                // Use fetch for chunk upload
+                const chunkRes = await fetch(uploadUrl, {
+                    method: 'PUT',
+                    headers,
+                    body: chunk,
+                });
 
-            setUploadProgress(100);
+                // YouTube returns 308 for incomplete uploads, 200/201 for complete
+                if (chunkRes.status === 308) {
+                    // Chunk accepted, continue
+                    offset = chunkEnd;
+                    setUploadProgress(Math.round((offset / totalSize) * 100));
+                } else if (chunkRes.status >= 200 && chunkRes.status < 300) {
+                    // Upload complete
+                    result = await chunkRes.json();
+                    setUploadProgress(100);
+                    break;
+                } else if (chunkRes.status === 401) {
+                    // Token expired mid-upload, try refresh
+                    const refreshed = await refreshToken();
+                    if (!refreshed) {
+                        throw new Error('Authentication lost during upload. Please reconnect.');
+                    }
+                    // Retry this chunk with new token (re-initiate session)
+                    throw new Error('Token refreshed but upload session lost. Please retry.');
+                } else {
+                    const errBody = await chunkRes.text().catch(() => '');
+                    throw new Error(`Chunk upload failed: ${chunkRes.status} ${errBody}`);
+                }
+            }
+
+            if (!result) {
+                throw new Error('Upload completed but no response received');
+            }
+
             return { success: true, url: `https://youtube.com/watch?v=${result.id}`, videoId: result.id };
         } catch (err) {
             return { success: false, error: err.message };
         } finally {
             setIsUploading(false);
         }
-    }, []);
+    }, [isTokenExpired, refreshToken]);
 
     const generateMetadata = useCallback(async (ollamaChat, transcription) => {
         try {
@@ -185,7 +259,7 @@ Rules:
     return {
         isAuthenticated, channelName,
         clientId, setClientId,
-        authenticate, disconnect,
+        authenticate, disconnect, refreshToken,
         uploadVideo, isUploading, uploadProgress,
         generateMetadata,
     };

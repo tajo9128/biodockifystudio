@@ -1,5 +1,6 @@
-import { useState, useCallback, useRef } from 'react';
-import { applyFilters } from '../utils/FilterEngine';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { FILTERS, buildCSSFilter, getDefaultParams } from '../utils/FilterEngine';
+import { applyTransition } from '../utils/Transitions';
 
 let clipIdCounter = 0;
 
@@ -10,6 +11,7 @@ const createClip = (overrides = {}) => ({
     duration: 10,
     sourceStart: 0,
     sourceEnd: 10,
+    sourceUrl: null,
     speed: 1.0,
     filters: [],
     transitions: { in: null, out: null },
@@ -167,8 +169,10 @@ export const useTimeline = () => {
             duration: rightDuration,
             sourceStart: rightSourceStart,
             sourceEnd: clip.sourceEnd,
+            sourceUrl: clip.sourceUrl,
             speed: clip.speed,
             filters: [...clip.filters],
+            transitions: { ...clip.transitions },
             label: clip.label,
             color: clip.color,
             type: clip.type,
@@ -299,31 +303,160 @@ export const useTimeline = () => {
         setCurrentTime(Math.max(0, Math.min(time, duration)));
     }, [duration]);
 
+    // Video element cache for timeline playback
+    const videoCacheRef = useRef(new Map()); // clipId -> HTMLVideoElement
+
+    const getOrCreateVideo = useCallback((clip) => {
+        if (!clip.sourceUrl) return null;
+        let video = videoCacheRef.current.get(clip.id);
+        if (!video) {
+            video = document.createElement('video');
+            video.muted = true;
+            video.playsInline = true;
+            video.preload = 'auto';
+            video.src = clip.sourceUrl;
+            videoCacheRef.current.set(clip.id, video);
+        }
+        return video;
+    }, []);
+
+    // Cleanup video cache on unmount
+    useEffect(() => {
+        const cache = videoCacheRef.current;
+        return () => {
+            cache.forEach(v => { v.pause(); v.src = ''; });
+            cache.clear();
+        };
+    }, []);
+
     // Render all timeline clips onto a canvas frame at the given time
     const renderFrame = useCallback((ctx, canvas, time) => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        // Render tracks back to front
+        ctx.filter = 'none';
+        ctx.globalAlpha = 1;
+
+        const sortedClips = [...clips].sort((a, b) => a.trackIndex - b.trackIndex || a.startTime - b.startTime);
+
         for (const track of tracks) {
             if (track.muted || !track.visible) continue;
-            const trackClips = clips.filter(c => c.trackIndex === tracks.indexOf(track));
-            for (const clip of trackClips) {
-                if (time < clip.startTime || time >= clip.startTime + clip.duration) continue;
-                // Apply clip filters
-                applyFilters(ctx, canvas, clip.filters);
-                // Apply keyframed values
-                if (clip.keyframes) {
-                    for (const [paramKey, kfs] of Object.entries(clip.keyframes)) {
-                        if (kfs.length > 0) {
-                            const val = getKeyframedValue(clip, paramKey, time);
-                            // Store keyframed params for downstream use
-                            if (!ctx._keyframedParams) ctx._keyframedParams = {};
-                            ctx._keyframedParams[paramKey] = val;
+            const trackIdx = tracks.indexOf(track);
+            const trackClips = sortedClips.filter(c => c.trackIndex === trackIdx);
+
+            for (let ci = 0; ci < trackClips.length; ci++) {
+                const clip = trackClips[ci];
+                const clipEnd = clip.startTime + clip.duration;
+
+                if (time < clip.startTime || time >= clipEnd) continue;
+
+                const relTime = time - clip.startTime;
+
+                // --- Transition detection ---
+                const transitionDuration = 1.0;
+                const endGap = clipEnd - time;
+
+                // Check out-transition: near end of clip + next clip has matching in-transition
+                if (clip.transitions.out && endGap < transitionDuration && ci < trackClips.length - 1) {
+                    const nextClip = trackClips[ci + 1];
+                    if (nextClip.transitions.in && time >= nextClip.startTime) {
+                        // Render transition between this and next clip
+                        const fromVideo = getOrCreateVideo(clip);
+                        const toVideo = getOrCreateVideo(nextClip);
+                        if (fromVideo && toVideo && fromVideo.readyState >= 2 && toVideo.readyState >= 2) {
+                            const progress = 1 - (endGap / transitionDuration);
+                            const fromRel = time - clip.startTime;
+                            const toRel = time - nextClip.startTime;
+                            const fromSrc = clip.sourceStart + fromRel * clip.speed;
+                            const toSrc = nextClip.sourceStart + toRel * nextClip.speed;
+                            if (Math.abs(fromVideo.currentTime - fromSrc) > 0.1) fromVideo.currentTime = fromSrc;
+                            if (Math.abs(toVideo.currentTime - toSrc) > 0.1) toVideo.currentTime = toSrc;
+                            applyTransition(clip.transitions.out, ctx, canvas, fromVideo, toVideo, progress);
+                        }
+                        continue; // Skip normal rendering for this clip
+                    }
+                }
+
+                // --- Build merged filter params with keyframe overrides ---
+                const resolvedFilters = (clip.filters || []).map(f => {
+                    const merged = { ...f.params };
+                    if (clip.keyframes) {
+                        for (const [paramKey] of Object.entries(clip.keyframes)) {
+                            if (paramKey.startsWith(f.filterId + '.')) {
+                                const subKey = paramKey.slice(f.filterId.length + 1);
+                                const val = getKeyframedValue(clip, paramKey, time);
+                                if (val !== undefined) merged[subKey] = val;
+                            }
                         }
                     }
+                    return { filterId: f.filterId, params: merged };
+                });
+
+                // --- Draw the clip frame ---
+                const video = getOrCreateVideo(clip);
+
+                if (video && video.readyState >= 2) {
+                    const sourceTime = clip.sourceStart + relTime * clip.speed;
+
+                    ctx.save();
+
+                    // Apply transform filters (mirror, flip, rotate) before drawing
+                    resolvedFilters.forEach(f => {
+                        if (['mirror', 'flip', 'rotate', 'crop'].includes(f.filterId)) {
+                            const filterObj = FILTERS[f.filterId];
+                            if (filterObj && filterObj.apply) {
+                                filterObj.apply(ctx, canvas, { ...getDefaultParams(f.filterId), ...f.params });
+                            }
+                        }
+                    });
+
+                    // Set CSS filter string for draw-time filters
+                    const cssFilter = buildCSSFilter(resolvedFilters);
+                    if (cssFilter && cssFilter !== 'none') {
+                        ctx.filter = cssFilter;
+                    }
+
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    ctx.filter = 'none';
+
+                    // Apply post-draw overlay filters
+                    resolvedFilters.forEach(f => {
+                        if (['vignette', 'border', 'temperature', 'tint', 'noise',
+                             'filmgrain', 'oldfilm'].includes(f.filterId)) {
+                            const filterObj = FILTERS[f.filterId];
+                            if (filterObj && filterObj.apply) {
+                                ctx.save();
+                                filterObj.apply(ctx, canvas, { ...getDefaultParams(f.filterId), ...f.params });
+                                ctx.restore();
+                            }
+                        }
+                    });
+
+                    ctx.restore();
+
+                    if (Math.abs(video.currentTime - sourceTime) > 0.1) {
+                        video.currentTime = sourceTime;
+                    }
+                } else if (video) {
+                    ctx.save();
+                    ctx.fillStyle = clip.color || '#8b5cf6';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '16px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Loading...', canvas.width / 2, canvas.height / 2);
+                    ctx.restore();
+                } else {
+                    ctx.save();
+                    ctx.fillStyle = clip.color || '#8b5cf6';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '16px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(clip.label || 'No source', canvas.width / 2, canvas.height / 2);
+                    ctx.restore();
                 }
             }
         }
-    }, [tracks, clips, getKeyframedValue]);
+    }, [tracks, clips, getKeyframedValue, getOrCreateVideo]);
 
     // Duplicate clip
     const duplicateClip = useCallback((id) => {

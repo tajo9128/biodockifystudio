@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { YouTubeUploadModal } from '../Modals/YouTubeUploadModal';
 import { useYouTube } from '../../hooks/useYouTube';
+import { useAI } from '../../hooks/useAI';
 import './ExportMode.css';
 
 const FORMATS = [
@@ -19,7 +20,46 @@ export const ExportMode = () => {
     const [format, setFormat] = useState('webm');
     const [quality, setQuality] = useState('1080p');
     const [showYouTube, setShowYouTube] = useState(false);
+    const [isGeneratingAI, setIsGeneratingAI] = useState(false);
     const youtube = useYouTube();
+    const ai = useAI();
+
+    const handleGenerateAIMetadata = useCallback(async () => {
+        setIsGeneratingAI(true);
+        try {
+            const prompt = `Generate a YouTube title, description, and tags for a screen recording video.
+
+Respond ONLY with valid JSON in this format:
+{"title": "...", "description": "...", "tags": ["tag1", "tag2"], "categoryId": "22"}
+
+Rules:
+- Title: max 100 chars, catchy, include keywords
+- Description: 2-3 sentences, include keywords naturally
+- Tags: 5-10 relevant tags
+- categoryId: "22" for People & Blogs, "28" for Science & Technology, "27" for Education`;
+
+            const command = await ai.sendMessage(prompt);
+            if (command) {
+                // sendMessage returns { action: 'chat', message: fullContent } for chat responses
+                const content = command.message || '';
+                const jsonMatch = content.match(/\{[\s\S]*?\}/);
+                if (jsonMatch) {
+                    try {
+                        return JSON.parse(jsonMatch[0]);
+                    } catch { /* parse error */ }
+                }
+                // If command itself has the fields
+                if (command.title || command.description) {
+                    return command;
+                }
+            }
+            return null;
+        } catch {
+            return null;
+        } finally {
+            setIsGeneratingAI(false);
+        }
+    }, [ai]);
 
     return (
         <div className="export-mode">
@@ -102,6 +142,8 @@ export const ExportMode = () => {
                 onDisconnect={youtube.disconnect}
                 isUploading={youtube.isUploading}
                 uploadProgress={youtube.uploadProgress}
+                onGenerateAI={handleGenerateAIMetadata}
+                isGeneratingAI={isGeneratingAI}
             />
         </div>
     );

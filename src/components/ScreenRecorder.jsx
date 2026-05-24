@@ -11,6 +11,7 @@ import { useZoom } from '../hooks/useZoom';
 import { EXPORT_FORMATS, getDefaultFormat } from '../constants/formats';
 import { useAI } from '../hooks/useAI';
 import { useYouTube } from '../hooks/useYouTube';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 
 // UI Components
 import { ControlBar } from './Controls/ControlBar';
@@ -82,6 +83,7 @@ const ScreenRecorder = () => {
     const timeline = useTimeline();
     const overlays = useOverlays();
     const [showTimeline, setShowTimeline] = useState(false);
+    const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
     const showToast = useCallback((title, message, type = 'info') => {
         setToast({ title, message, type });
@@ -124,6 +126,16 @@ const ScreenRecorder = () => {
         return () => { if (!isRecording) stopStreams(); };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Keyboard shortcuts
+    useKeyboardShortcuts({
+        'ctrl+shift+r': () => { if (isRecording) stopRecording(); else startMediaRecording(); },
+        'ctrl+shift+p': () => { if (isPaused) resumeRecording(); else if (isRecording) pauseRecording(); },
+        'ctrl+shift+c': () => toggleCamera(),
+        'ctrl+shift+m': () => toggleMic(),
+        'ctrl+shift+a': () => { setAnnotationEnabled(prev => !prev); setCursorFxEnabled(prev => !prev); },
+        'ctrl+shift+x': () => setCursorFxEnabled(prev => !prev),
+    });
+
     // AI command handler
     const handleAICommand = useCallback(async (input) => {
         const command = await ai.sendMessage(input);
@@ -141,7 +153,53 @@ const ScreenRecorder = () => {
         }
     }, [ai, startMediaRecording, stopRecording, pauseRecording, resumeRecording]);
 
+    const handleGenerateAIMetadata = useCallback(async () => {
+        setIsGeneratingAI(true);
+        try {
+            const prompt = `Generate a YouTube title, description, and tags for a screen recording video.
+
+Respond ONLY with valid JSON in this format:
+{"title": "...", "description": "...", "tags": ["tag1", "tag2"], "categoryId": "22"}
+
+Rules:
+- Title: max 100 chars, catchy, include keywords
+- Description: 2-3 sentences, include keywords naturally
+- Tags: 5-10 relevant tags
+- categoryId: "22" for People & Blogs, "28" for Science & Technology, "27" for Education`;
+
+            const command = await ai.sendMessage(prompt);
+            if (command) {
+                const content = command.message || '';
+                const jsonMatch = content.match(/\{[\s\S]*?\}/);
+                if (jsonMatch) {
+                    try { return JSON.parse(jsonMatch[0]); } catch { /* parse error */ }
+                }
+                if (command.title || command.description) {
+                    return command;
+                }
+            }
+            return null;
+        } catch {
+            return null;
+        } finally {
+            setIsGeneratingAI(false);
+        }
+    }, [ai]);
+
     const handleSaveRecording = async (blob, fileName) => {
+        const blobUrl = URL.createObjectURL(blob);
+
+        // Add clip to timeline with source URL
+        const clipDuration = elapsedTime || 10;
+        timeline.addClip(0, {
+            sourceUrl: blobUrl,
+            duration: clipDuration,
+            sourceEnd: clipDuration,
+            label: fileName || 'Recording',
+            color: '#8b5cf6',
+            type: 'video',
+        });
+
         if (directoryHandle) {
             try {
                 const fileHandle = await directoryHandle.getFileHandle(fileName, { create: true });
@@ -154,17 +212,13 @@ const ScreenRecorder = () => {
                 generateThumbnail(blob, fileName, directoryHandle).then(() => syncLibrary(directoryHandle));
                 setTimeout(() => setHighlightedFile(null), 5000);
             } catch {
-                const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = url; a.download = fileName; a.click();
-                URL.revokeObjectURL(url);
+                a.href = blobUrl; a.download = fileName; a.click();
                 showToast('Direct save failed', 'Download triggered as fallback', 'error');
             }
         } else {
-            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = fileName; a.click();
-            URL.revokeObjectURL(url);
+            a.href = blobUrl; a.download = fileName; a.click();
             showToast('Recording Saved', 'Check your downloads folder', 'success');
         }
         setPendingRecording(null);
@@ -483,7 +537,8 @@ const ScreenRecorder = () => {
                 isAuthenticated={youtube.isAuthenticated} channelName={youtube.channelName}
                 clientId={youtube.clientId} onSetClientId={youtube.setClientId}
                 onAuthenticate={youtube.authenticate} onDisconnect={youtube.disconnect}
-                isUploading={youtube.isUploading} uploadProgress={youtube.uploadProgress} />
+                isUploading={youtube.isUploading} uploadProgress={youtube.uploadProgress}
+                onGenerateAI={handleGenerateAIMetadata} isGeneratingAI={isGeneratingAI} />
 
             <FilterPanel isOpen={filterPanelOpen} onClose={() => setFilterPanelOpen(false)}
                 activeFilters={activeFilters} setActiveFilters={setActiveFilters} />

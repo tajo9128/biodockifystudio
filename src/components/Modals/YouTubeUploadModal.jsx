@@ -24,6 +24,7 @@ export const YouTubeUploadModal = ({
     clientId, onSetClientId,
     onAuthenticate, onDisconnect,
     isUploading, uploadProgress,
+    onGenerateAI, isGeneratingAI,
 }) => {
     const [title, setTitle] = useState('ScreenStudio Recording');
     const [description, setDescription] = useState('Recorded with ScreenStudio - Free Screen Recorder');
@@ -53,6 +54,17 @@ export const YouTubeUploadModal = ({
             setEditClientId('');
         }
     }, [editClientId, onSetClientId]);
+
+    const handleGenerateAI = useCallback(async () => {
+        if (!onGenerateAI) return;
+        const result = await onGenerateAI();
+        if (result) {
+            if (result.title) setTitle(result.title.slice(0, 100));
+            if (result.description) setDescription(result.description);
+            if (result.tags) setTags(Array.isArray(result.tags) ? result.tags.join(', ') : result.tags);
+            if (result.categoryId) setCategoryId(result.categoryId);
+        }
+    }, [onGenerateAI]);
 
     if (!isOpen) return null;
 
@@ -120,7 +132,18 @@ export const YouTubeUploadModal = ({
                             </div>
 
                             <div className="yt-field">
-                                <label>Title</label>
+                                <div className="yt-field-header">
+                                    <label>Title</label>
+                                    {onGenerateAI && (
+                                        <button
+                                            className="btn btn-outline yt-ai-btn"
+                                            onClick={handleGenerateAI}
+                                            disabled={isGeneratingAI}
+                                        >
+                                            {isGeneratingAI ? 'Generating...' : 'Generate with AI'}
+                                        </button>
+                                    )}
+                                </div>
                                 <input
                                     className="yt-input"
                                     value={title}
