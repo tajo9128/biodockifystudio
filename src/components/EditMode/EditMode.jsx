@@ -18,6 +18,9 @@ import { useAudioLevel } from '../../hooks/useAudioLevel';
 import { BACKGROUND_PRESETS } from '../../constants/backgrounds';
 import './EditMode.css';
 
+// DEBUG: Force rebuild
+console.log('[DEBUG] EditMode loaded with useStreams fix');
+
 export const EditMode = () => {
     const navigate = useNavigate();
     const canvasRef = useRef(null);
