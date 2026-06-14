@@ -24,5 +24,13 @@ dist-ssr
 *.sln
 *.sw?
 
+# Test results
+test-results/
+playwright-report/
+
+# Local dev servers
+spa-server.js
+spa-server.mjs
+
 # Agent Metadata
 .agent/
