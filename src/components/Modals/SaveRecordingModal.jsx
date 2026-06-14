@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-const SaveRecordingModal = ({ blob, mimeType, onSave, onDiscard }) => {
+const SaveRecordingModal = ({ blob, mimeType, onSave, onDiscard, onYouTube }) => {
     const getExtension = (mt) => {
         if (!mt) return '.webm';
         if (mt.includes('mp4')) return '.mp4';
@@ -8,8 +8,12 @@ const SaveRecordingModal = ({ blob, mimeType, onSave, onDiscard }) => {
         return '.webm';
     };
     const extension = getExtension(mimeType);
-    const defaultName = `recording-${new Date().toLocaleDateString().replace(/\//g, '-')}-${new Date().toLocaleTimeString().replace(/:/g, '-').split(' ')[0]}`;
-    const [fileName, setFileName] = useState(defaultName);
+    const getDefaultName = () => `recording-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)}`;
+    const [fileName, setFileName] = useState(getDefaultName);
+
+    useEffect(() => {
+        if (blob) setFileName(getDefaultName());
+    }, [blob]);
 
     if (!blob) return null;
 
@@ -72,6 +76,15 @@ const SaveRecordingModal = ({ blob, mimeType, onSave, onDiscard }) => {
                     >
                         Discard
                     </button>
+                    {onYouTube && (
+                        <button
+                            className="btn btn-outline"
+                            onClick={() => { handleConfirm(); onYouTube(); }}
+                            style={{ flex: 1, padding: '1rem', justifyContent: 'center' }}
+                        >
+                            Upload to YouTube
+                        </button>
+                    )}
                     <button
                         className="btn btn-primary"
                         onClick={handleConfirm}

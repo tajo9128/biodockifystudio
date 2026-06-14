@@ -173,6 +173,7 @@ export const useTimeline = () => {
             speed: clip.speed,
             filters: [...clip.filters],
             transitions: { ...clip.transitions },
+            keyframes: clip.keyframes ? JSON.parse(JSON.stringify(clip.keyframes)) : {},
             label: clip.label,
             color: clip.color,
             type: clip.type,
@@ -204,7 +205,12 @@ export const useTimeline = () => {
             const dur = Math.max(0.1, newDuration);
             if (fromLeft) {
                 const diff = c.duration - dur;
-                return { ...c, startTime: c.startTime + diff, duration: dur };
+                return {
+                    ...c,
+                    startTime: c.startTime + diff,
+                    duration: dur,
+                    sourceStart: c.sourceStart + diff * (c.speed || 1),
+                };
             }
             return { ...c, duration: dur };
         }));
@@ -354,17 +360,19 @@ export const useTimeline = () => {
                 const transitionDuration = 1.0;
                 const endGap = clipEnd - time;
 
-                // Check out-transition: near end of clip + next clip has matching in-transition
+                // Check out-transition: near end of clip, next clip is adjacent or overlapping
                 if (clip.transitions.out && endGap < transitionDuration && ci < trackClips.length - 1) {
                     const nextClip = trackClips[ci + 1];
-                    if (nextClip.transitions.in && time >= nextClip.startTime) {
+                    const gap = nextClip.startTime - clipEnd;
+                    // Allow transition if clips are adjacent or overlapping (within transition window)
+                    if (gap <= transitionDuration) {
                         // Render transition between this and next clip
                         const fromVideo = getOrCreateVideo(clip);
                         const toVideo = getOrCreateVideo(nextClip);
                         if (fromVideo && toVideo && fromVideo.readyState >= 2 && toVideo.readyState >= 2) {
                             const progress = 1 - (endGap / transitionDuration);
                             const fromRel = time - clip.startTime;
-                            const toRel = time - nextClip.startTime;
+                            const toRel = Math.max(0, time - nextClip.startTime);
                             const fromSrc = clip.sourceStart + fromRel * clip.speed;
                             const toSrc = nextClip.sourceStart + toRel * nextClip.speed;
                             if (Math.abs(fromVideo.currentTime - fromSrc) > 0.1) fromVideo.currentTime = fromSrc;
@@ -463,9 +471,9 @@ export const useTimeline = () => {
         const clip = clips.find(c => c.id === id);
         if (!clip) return;
         pushUndo(clips, tracks);
+        const { id: _omitId, ...clipWithoutId } = clip;
         const newClip = createClip({
-            ...clip,
-            id: undefined,
+            ...clipWithoutId,
             startTime: clip.startTime + clip.duration,
         });
         setClips(prev => {

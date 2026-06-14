@@ -11,6 +11,9 @@ export const useAudioLevel = (audioStream) => {
 
         try {
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioContext.state === 'suspended') {
+                audioContext.resume().catch(() => {});
+            }
             const source = audioContext.createMediaStreamSource(audioStream);
             const analyser = audioContext.createAnalyser();
             analyser.fftSize = 256;

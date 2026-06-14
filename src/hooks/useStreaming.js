@@ -20,6 +20,9 @@ export const useStreaming = () => {
     const startTimeRef = useRef(null);
     const statsIntervalRef = useRef(null);
     const bytesSentRef = useRef(0);
+    const isStreamingRef = useRef(false);
+
+    useEffect(() => { isStreamingRef.current = isStreaming; }, [isStreaming]);
 
     const setStreamKey = useCallback((key) => {
         setStreamKeyState(key);
@@ -79,9 +82,10 @@ export const useStreaming = () => {
 
             ws.onopen = () => {
                 // Send config
+                const cleanRtmp = rtmpUrl.endsWith('/') ? rtmpUrl.slice(0, -1) : rtmpUrl;
                 ws.send(JSON.stringify({
                     type: 'config',
-                    rtmpUrl: `${rtmpUrl}/${streamKey}`,
+                    rtmpUrl: `${cleanRtmp}/${streamKey}`,
                     resolution,
                     bitrate: bitrate * 1000,
                     framerate: 30,
@@ -98,8 +102,17 @@ export const useStreaming = () => {
                     });
                 }
 
+                // Select supported mimeType with fallbacks
+                const mimeTypes = [
+                    'video/webm;codecs=vp8,opus',
+                    'video/webm;codecs=vp9,opus',
+                    'video/webm;codecs=h264,opus',
+                    'video/webm',
+                ];
+                const selectedMimeType = mimeTypes.find(t => MediaRecorder.isTypeSupported(t)) || '';
+
                 const recorder = new MediaRecorder(canvasStream, {
-                    mimeType: 'video/webm;codecs=vp8,opus',
+                    mimeType: selectedMimeType,
                     videoBitsPerSecond: bitrate * 1000,
                     audioBitsPerSecond: 128000,
                 });
@@ -145,7 +158,7 @@ export const useStreaming = () => {
             };
 
             ws.onclose = () => {
-                if (isStreaming) {
+                if (isStreamingRef.current) {
                     stopStream();
                 }
             };

@@ -86,29 +86,42 @@ export const useAI = () => {
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let fullContent = '';
+            let lineBuffer = '';
 
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                const chunk = decoder.decode(value, { stream: true });
+                lineBuffer += decoder.decode(value, { stream: true });
                 // Ollama streams JSON objects separated by newlines
-                const lines = chunk.split('\n').filter(Boolean);
+                const lines = lineBuffer.split('\n');
+                lineBuffer = lines.pop() || '';
                 for (const line of lines) {
+                    if (!line.trim()) continue;
                     try {
                         const data = JSON.parse(line);
                         if (data.message?.content) {
                             fullContent += data.message.content;
                             onToken?.(data.message.content);
                         }
-                    } catch { /* partial JSON, skip */ }
+                    } catch { /* partial JSON, will retry next chunk */ }
                 }
+            }
+            // Process any remaining buffered line
+            if (lineBuffer.trim()) {
+                try {
+                    const data = JSON.parse(lineBuffer);
+                    if (data.message?.content) {
+                        fullContent += data.message.content;
+                        onToken?.(data.message.content);
+                    }
+                } catch { /* final partial, skip */ }
             }
 
             // Parse the accumulated content as a command
             if (!fullContent.trim()) return null;
             try { return JSON.parse(fullContent); }
             catch {
-                const jsonMatch = fullContent.match(/\{[^{}]*"action"[^{}]*\}/);
+                const jsonMatch = fullContent.match(/\{"action"[\s\S]*\}/);
                 if (jsonMatch) { try { return JSON.parse(jsonMatch[0]); } catch { /* json parse fallback */ } }
                 return { action: 'chat', message: fullContent.trim() };
             }
@@ -139,7 +152,7 @@ export const useAI = () => {
             if (!content) return null;
             try { return JSON.parse(content); }
             catch {
-                const jsonMatch = content.match(/\{[^{}]*"action"[^{}]*\}/);
+                const jsonMatch = content.match(/\{"action"[\s\S]*\}/);
                 if (jsonMatch) { try { return JSON.parse(jsonMatch[0]); } catch { /* json parse fallback */ } }
                 return { action: 'chat', message: content };
             }
@@ -172,15 +185,19 @@ export const useAI = () => {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let fullContent = '';
+            let lineBuffer = '';
 
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                const chunk = decoder.decode(value, { stream: true });
+                lineBuffer += decoder.decode(value, { stream: true });
                 // OpenAI SSE format: data: {...}\n\n
-                const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
+                const lines = lineBuffer.split('\n');
+                lineBuffer = lines.pop() || '';
                 for (const line of lines) {
-                    const json = line.replace('data: ', '').trim();
+                    const trimmed = line.trim();
+                    if (!trimmed.startsWith('data: ')) continue;
+                    const json = trimmed.replace('data: ', '').trim();
                     if (json === '[DONE]') break;
                     try {
                         const data = JSON.parse(json);
@@ -197,7 +214,7 @@ export const useAI = () => {
             if (!fullContent.trim()) return null;
             try { return JSON.parse(fullContent); }
             catch {
-                const jsonMatch = fullContent.match(/\{[^{}]*"action"[^{}]*\}/);
+                const jsonMatch = fullContent.match(/\{"action"[\s\S]*\}/);
                 if (jsonMatch) { try { return JSON.parse(jsonMatch[0]); } catch { /* json parse fallback */ } }
                 return { action: 'chat', message: fullContent.trim() };
             }
@@ -225,7 +242,7 @@ export const useAI = () => {
             if (!content) return null;
             try { return JSON.parse(content); }
             catch {
-                const jsonMatch = content.match(/\{[^{}]*"action"[^{}]*\}/);
+                const jsonMatch = content.match(/\{"action"[\s\S]*\}/);
                 if (jsonMatch) { try { return JSON.parse(jsonMatch[0]); } catch { /* json parse fallback */ } }
                 return { action: 'chat', message: content };
             }
@@ -305,7 +322,7 @@ export const useAI = () => {
             if (!content) return null;
             try { return JSON.parse(content); }
             catch {
-                const jsonMatch = content.match(/\{[^{}]*"action"[^{}]*\}/);
+                const jsonMatch = content.match(/\{"action"[\s\S]*\}/);
                 if (jsonMatch) { try { return JSON.parse(jsonMatch[0]); } catch { /* json parse fallback */ } }
                 return { action: 'chat', message: content };
             }
@@ -361,9 +378,16 @@ export const useAI = () => {
                     command = await callPaidFallback(input, recentMessages);
                 }
 
-                // Remove the streaming placeholder if we got a command
+                // Remove the streaming placeholder if we got a structured command
                 if (command && command.action !== 'chat') {
-                    setMessages(prev => prev.slice(0, -1));
+                    setMessages(prev => {
+                        const last = prev[prev.length - 1];
+                        // Only remove if last message is the empty streaming placeholder
+                        if (last?.role === 'assistant' && !last.content) {
+                            return prev.slice(0, -1);
+                        }
+                        return prev;
+                    });
                 }
             }
 
@@ -428,14 +452,14 @@ export const useAI = () => {
             };
             const responseText = responseMap[command.action] || command.message || `Command: ${command.action}`;
 
-            // Replace streaming placeholder or add new message
+            // Add assistant response — don't slice user message
             setMessages(prev => {
                 const last = prev[prev.length - 1];
                 if (last?.role === 'assistant' && last.content) {
-                    // Already has streaming content, keep it
+                    // Already has streaming content from a chat-like response, keep it
                     return prev;
                 }
-                return [...prev.slice(0, -1), { role: 'assistant', content: responseText }];
+                return [...prev, { role: 'assistant', content: responseText }];
             });
 
             return command;

@@ -11,6 +11,7 @@ export const useRecording = ({
     recordingQuality = 'native',
     bitrate = 8000000,
     mimeType: preferredMimeType,
+    useCanvas: useCanvasProp,
     onComplete
 }) => {
     const [isRecording, setIsRecording] = useState(false);
@@ -40,8 +41,7 @@ export const useRecording = ({
 
             const tracks = [];
 
-            // Case A: Webcam is active OR Background/Frame is active OR Non-Native Scaling (requires canvas)
-            const useCanvas = cameraStream || activeBg !== 'none' || (screenScale && screenScale < 1.0) || recordingQuality !== 'native';
+            const useCanvas = useCanvasProp ?? (cameraStream || activeBg !== 'none' || (screenScale && screenScale < 1.0) || recordingQuality !== 'native');
 
             if (useCanvas) {
                 if (!canvasRef.current) throw new Error('Canvas not found');
@@ -106,6 +106,8 @@ export const useRecording = ({
 
             mediaRecorder.onerror = (e) => {
                 console.error('MediaRecorder error:', e.error);
+                setIsRecording(false);
+                setIsPaused(false);
                 setStatus('error');
             };
 
@@ -136,7 +138,7 @@ export const useRecording = ({
         } finally {
             isStartingRef.current = false;
         }
-    }, [screenStream, cameraStream, audioStream, activeBg, screenScale, canvasRef, recordingQuality, bitrate, preferredMimeType, onComplete]);
+    }, [screenStream, cameraStream, audioStream, activeBg, screenScale, canvasRef, recordingQuality, bitrate, preferredMimeType, useCanvasProp, onComplete]);
 
     const pauseRecording = useCallback(() => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {

@@ -26,7 +26,7 @@ export const ClipContextMenu = ({ x, y, clip, onClose, onSplit, onDelete, onDupl
             <div className="ctx-item" onClick={() => { onFilters(); onClose(); }}>Filters...</div>
             <div className="ctx-item" onClick={() => { onKeyframes(); onClose(); }}>Keyframes...</div>
             <div className="ctx-divider" />
-            <div className="ctx-item ctx-danger" onClick={() => { onDelete(); onClose(); }}>Delete</div>
+            <div className="ctx-item ctx-danger" onClick={() => { onDelete(clip.id); onClose(); }}>Delete</div>
         </div>
     );
 };

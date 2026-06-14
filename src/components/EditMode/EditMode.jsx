@@ -16,10 +16,7 @@ import { useStreams } from '../../hooks/useStreams';
 import { useRecording } from '../../hooks/useRecording';
 import { useAudioLevel } from '../../hooks/useAudioLevel';
 import { BACKGROUND_PRESETS } from '../../constants/backgrounds';
-import './EditMode.css';
-
-// DEBUG: Force rebuild
-console.log('[DEBUG] EditMode loaded with useStreams fix');
+import     './EditMode.css';
 
 export const EditMode = () => {
     const navigate = useNavigate();
@@ -38,11 +35,10 @@ export const EditMode = () => {
     const [webcamScale, _setWebcamScale] = useState(0.25);
     const [screenScale, _setScreenScale] = useState(1.0);
     const [aiOpen, setAiOpen] = useState(false);
-
     const timeline = useTimeline();
     const annotation = useAnnotation(canvasRef, annotationEnabled);
     const { drawCursorFx } = useCursorFx(canvasRef, cursorFxEnabled);
-    const { applyZoom, restoreZoom, setZoomLevel, setPanOffset } = useZoom(canvasRef, zoomEnabled);
+    const { applyZoom, restoreZoom, setZoomLevel } = useZoom(canvasRef, zoomEnabled);
     const ai = useAI();
     const overlays = useOverlays();
     const streams = useStreams(screenVideoRef, cameraVideoRef, () => {});
@@ -56,6 +52,62 @@ export const EditMode = () => {
     const _audioLevel = useAudioLevel(streams?.audioStream);
 
     const selectedClip = timeline.clips.find(c => c.id === timeline.selectedClipId);
+
+    // Sync activeFilters from selected clip when selection changes
+    useEffect(() => {
+        setActiveFilters(selectedClip?.filters || []);
+    }, [timeline.selectedClipId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Wrapper that persists filter changes to the clip
+    const updateFilters = useCallback((updater) => {
+        setActiveFilters(prev => {
+            const next = typeof updater === 'function' ? updater(prev) : updater;
+            if (selectedClip) {
+                timeline.updateClip(selectedClip.id, { filters: next });
+            }
+            return next;
+        });
+    }, [selectedClip, timeline]);
+
+    // Set transition on selected clip
+    const handleSetTransition = useCallback((type) => {
+        if (!selectedClip) return;
+        timeline.updateClip(selectedClip.id, {
+            transitions: { ...selectedClip.transitions, out: type },
+        });
+    }, [selectedClip, timeline]);
+
+    // Add text overlay
+    const handleAddTextOverlay = useCallback((text, x, y, fontSize, duration) => {
+        overlays.addTextOverlay(text, x || 50, y || 50, {
+            fontSize: fontSize || 24,
+            duration: duration || 5,
+            startTime: 0,
+        });
+    }, [overlays]);
+
+    // Import media file into timeline
+    const fileInputRef = useRef(null);
+    const handleImportMedia = useCallback((e) => {
+        const files = Array.from(e.target.files);
+        files.forEach(file => {
+            const url = URL.createObjectURL(file);
+            const video = document.createElement('video');
+            video.preload = 'metadata';
+            video.onloadedmetadata = () => {
+                const duration = video.duration || 10;
+                timeline.addClip(0, {
+                    sourceUrl: url,
+                    duration,
+                    sourceEnd: duration,
+                    label: file.name.replace(/\.[^/.]+$/, ''),
+                    type: 'video',
+                });
+            };
+            video.src = url;
+        });
+        e.target.value = '';
+    }, [timeline]);
 
     const handleToolChange = useCallback((tool) => {
         setActiveTool(tool);
@@ -91,13 +143,13 @@ export const EditMode = () => {
                 break;
             }
             case 'trim': {
-                // Trim via resizeClip: set start and end from command
                 if (clipId && command.end !== undefined) {
                     const clip = timeline.clips.find(c => c.id === clipId);
                     if (clip) {
-                        const newDuration = command.end - (command.start ?? clip.startTime);
+                        const startTime = command.start ?? clip.startTime;
+                        const newDuration = command.end - startTime;
                         timeline.updateClip(clipId, {
-                            startTime: command.start ?? 0,
+                            startTime,
                             duration: Math.max(0.1, newDuration),
                         });
                     }
@@ -259,17 +311,17 @@ export const EditMode = () => {
                 // chat, help, unknown — no action needed
                 break;
         }
-    }, [timeline, annotation, overlays, navigate, setZoomLevel, setPanOffset]);
+    }, [timeline, annotation, overlays, navigate, setZoomLevel]);
 
     // Wire AI sendMessage to execute returned commands
     const handleAISend = useCallback(async (text) => {
         const command = await ai.sendMessage(text);
         if (command) handleAICommand(command);
-    }, [ai.sendMessage, handleAICommand]);
+    }, [ai, handleAICommand]);
 
     // Keyboard shortcuts
     useKeyboardShortcuts({
-        'space': () => timeline.togglePlayback?.() || (timeline.isPlaying ? timeline.pause?.() : timeline.play?.()),
+        ' ': () => timeline.isPlaying ? timeline.pause() : timeline.play(),
         's': () => timeline.splitAtPlayhead(),
         'delete': () => { if (timeline.selectedClipId) timeline.removeClip(timeline.selectedClipId); },
         'ctrl+z': () => timeline.undo(),
@@ -362,12 +414,19 @@ export const EditMode = () => {
                     activeTool={activeTool}
                     selectedClip={selectedClip}
                     activeFilters={activeFilters}
-                    setActiveFilters={setActiveFilters}
+                    setActiveFilters={updateFilters}
                     onRemoveKeyframe={timeline.removeKeyframe}
+                    onAddKeyframe={timeline.addKeyframe}
+                    onSetTransition={handleSetTransition}
+                    onAddTextOverlay={handleAddTextOverlay}
                 />
             </div>
 
             <div className="edit-mode-timeline">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem' }}>
+                    <input ref={fileInputRef} type="file" accept="video/*,audio/*" multiple style={{ display: 'none' }} onChange={handleImportMedia} />
+                    <button className="btn btn-outline" onClick={() => fileInputRef.current?.click()}>Import Media</button>
+                </div>
                 <Timeline
                     clips={timeline.clips}
                     tracks={timeline.tracks}
@@ -380,12 +439,18 @@ export const EditMode = () => {
                     onSeek={timeline.seek}
                     onSplit={timeline.splitAtPlayhead}
                     onDelete={timeline.removeClip}
+                    onDuplicate={timeline.duplicateClip}
+                    onSpeed={timeline.setClipSpeed}
                     onMove={timeline.moveClip}
                     onResize={timeline.resizeClip}
                     onPlay={timeline.play}
                     onPause={timeline.pause}
                     onStop={timeline.stop}
                     onZoomChange={timeline.setZoom}
+                    onAddTrack={timeline.addTrack}
+                    onRemoveTrack={timeline.removeTrack}
+                    onToggleMute={timeline.toggleTrackMute}
+                    onToggleLock={timeline.toggleTrackLock}
                 />
             </div>
 

@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { YouTubeUploadModal } from '../Modals/YouTubeUploadModal';
 import { useYouTube } from '../../hooks/useYouTube';
 import { useAI } from '../../hooks/useAI';
+import { recordingStore } from '../../utils/RecordingStore';
 import './ExportMode.css';
 
 const FORMATS = [
@@ -21,8 +22,25 @@ export const ExportMode = () => {
     const [quality, setQuality] = useState('1080p');
     const [showYouTube, setShowYouTube] = useState(false);
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+    const [recording, setRecording] = useState(recordingStore.get());
     const youtube = useYouTube();
     const ai = useAI();
+
+    useEffect(() => {
+        return recordingStore.subscribe(setRecording);
+    }, []);
+
+    const handleDownload = useCallback(() => {
+        if (!recording?.blob) return;
+        const ext = format === 'mp4' ? '.mp4' : format === 'mkv' ? '.mkv' : '.webm';
+        const name = recording.name + ext;
+        const a = document.createElement('a');
+        a.href = recording.url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }, [recording, format]);
 
     const handleGenerateAIMetadata = useCallback(async () => {
         setIsGeneratingAI(true);
@@ -42,7 +60,7 @@ Rules:
             if (command) {
                 // sendMessage returns { action: 'chat', message: fullContent } for chat responses
                 const content = command.message || '';
-                const jsonMatch = content.match(/\{[\s\S]*?\}/);
+                const jsonMatch = content.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
                     try {
                         return JSON.parse(jsonMatch[0]);
@@ -65,14 +83,18 @@ Rules:
         <div className="export-mode">
             <div className="export-mode-content">
                 <div className="export-preview-section">
-                    <div className="export-preview-placeholder">
-                        <div className="export-preview-icon">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                <polygon points="5 3 19 12 5 21 5 3"/>
-                            </svg>
+                    {recording?.url ? (
+                        <video src={recording.url} controls className="export-preview-video" style={{ maxWidth: '100%', borderRadius: '12px' }} />
+                    ) : (
+                        <div className="export-preview-placeholder">
+                            <div className="export-preview-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <polygon points="5 3 19 12 5 21 5 3"/>
+                                </svg>
+                            </div>
+                            <p>Record a video first, then come back here to export</p>
                         </div>
-                        <p>Record a video first, then come back here to export</p>
-                    </div>
+                    )}
                 </div>
 
                 <div className="export-settings-section">
@@ -112,7 +134,7 @@ Rules:
                         </div>
 
                         <div className="export-actions">
-                            <button className="btn btn-primary export-btn">
+                            <button className="btn btn-primary export-btn" onClick={handleDownload} disabled={!recording?.blob}>
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                                 </svg>
@@ -133,7 +155,7 @@ Rules:
             <YouTubeUploadModal
                 isOpen={showYouTube}
                 onClose={() => setShowYouTube(false)}
-                onUpload={youtube.uploadVideo}
+                onUpload={(metadata) => youtube.uploadVideo(recording?.blob, metadata)}
                 isAuthenticated={youtube.isAuthenticated}
                 channelName={youtube.channelName}
                 clientId={youtube.clientId}

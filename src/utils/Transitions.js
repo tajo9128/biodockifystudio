@@ -34,8 +34,8 @@ export const TRANSITIONS = {
         apply: (ctx, canvas, fromFrame, toFrame, progress) => {
             const w = canvas.width;
             const split = Math.round(w * progress);
-            ctx.drawImage(toFrame, 0, 0, w, canvas.height);
-            ctx.drawImage(fromFrame, 0, 0, split, canvas.height, 0, 0, split, canvas.height);
+            ctx.drawImage(fromFrame, 0, 0, w, canvas.height);
+            if (split > 0) ctx.drawImage(toFrame, 0, 0, split, canvas.height, 0, 0, split, canvas.height);
         }
     },
     wipeRight: {
@@ -44,8 +44,8 @@ export const TRANSITIONS = {
         apply: (ctx, canvas, fromFrame, toFrame, progress) => {
             const w = canvas.width;
             const split = Math.round(w * (1 - progress));
-            ctx.drawImage(toFrame, 0, 0, w, canvas.height);
-            ctx.drawImage(fromFrame, split, 0, w - split, canvas.height, split, 0, w - split, canvas.height);
+            ctx.drawImage(fromFrame, 0, 0, w, canvas.height);
+            if (split < w) ctx.drawImage(toFrame, split, 0, w - split, canvas.height, split, 0, w - split, canvas.height);
         }
     },
     wipeUp: {
@@ -54,8 +54,8 @@ export const TRANSITIONS = {
         apply: (ctx, canvas, fromFrame, toFrame, progress) => {
             const h = canvas.height;
             const split = Math.round(h * (1 - progress));
-            ctx.drawImage(toFrame, 0, 0, canvas.width, h);
-            ctx.drawImage(fromFrame, 0, split, canvas.width, h - split, 0, split, canvas.width, h - split);
+            ctx.drawImage(fromFrame, 0, 0, canvas.width, h);
+            if (split < h) ctx.drawImage(toFrame, 0, split, canvas.width, h - split, 0, split, canvas.width, h - split);
         }
     },
     wipeDown: {
@@ -64,8 +64,8 @@ export const TRANSITIONS = {
         apply: (ctx, canvas, fromFrame, toFrame, progress) => {
             const h = canvas.height;
             const split = Math.round(h * progress);
-            ctx.drawImage(toFrame, 0, 0, canvas.width, h);
-            ctx.drawImage(fromFrame, 0, 0, canvas.width, split, 0, 0, canvas.width, split);
+            ctx.drawImage(fromFrame, 0, 0, canvas.width, h);
+            if (split > 0) ctx.drawImage(toFrame, 0, 0, canvas.width, split, 0, 0, canvas.width, split);
         }
     },
     slideLeft: {

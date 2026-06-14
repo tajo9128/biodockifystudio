@@ -55,7 +55,19 @@ export const useScenes = () => {
         // Load from localStorage or use defaults
         try {
             const saved = localStorage.getItem('screenstudio_scenes');
-            if (saved) return JSON.parse(saved);
+            if (saved) {
+                const loaded = JSON.parse(saved);
+                // Scan loaded IDs to advance counters and prevent collisions
+                loaded.forEach(s => {
+                    const sMatch = s.id?.match(/scene_(\d+)/);
+                    if (sMatch) sceneIdCounter = Math.max(sceneIdCounter, parseInt(sMatch[1]));
+                    s.sources?.forEach(src => {
+                        const srcMatch = src.id?.match(/src_(\d+)/);
+                        if (srcMatch) sourceIdCounter = Math.max(sourceIdCounter, parseInt(srcMatch[1]));
+                    });
+                });
+                return loaded;
+            }
         } catch { /* json parse */ }
         return DEFAULT_SCENES.map(s => ({
             id: `scene_${++sceneIdCounter}`,
@@ -200,6 +212,8 @@ export const useScenes = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.filter = 'none';
+        ctx.globalAlpha = 1;
 
         for (const source of scene.sources) {
             if (!source.visible) continue;
@@ -212,6 +226,7 @@ export const useScenes = () => {
 
             ctx.save();
             ctx.globalAlpha = opacity;
+            ctx.filter = 'none';
 
             if (rotation !== 0) {
                 ctx.translate(sx + sWidth / 2, sy + sHeight / 2);
@@ -262,6 +277,7 @@ export const useScenes = () => {
             // Apply source filters
             if (source.filters?.length > 0) {
                 applyFilters(ctx, canvas, source.filters);
+                ctx.filter = 'none';
             }
 
             ctx.restore();

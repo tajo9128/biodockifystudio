@@ -5,7 +5,7 @@ export const useAnnotation = (canvasRef, enabled) => {
     const [color, setColor] = useState('#ef4444');
     const [strokeWidth, setStrokeWidth] = useState(3);
     const [history, setHistory] = useState([]);
-    const [, setRedoStack] = useState([]);
+    const [redoStack, setRedoStack] = useState([]);
     const currentPath = useRef([]);
     const isDrawing = useRef(false);
     const startPos = useRef({ x: 0, y: 0 });
@@ -178,6 +178,7 @@ export const useAnnotation = (canvasRef, enabled) => {
         handleMouseUp,
         drawAnnotations,
         undo, redo, clearAnnotations,
-        hasAnnotations: history.length > 0
+        hasAnnotations: history.length > 0,
+        canRedo: redoStack.length > 0
     };
 };

@@ -172,11 +172,9 @@ export const useYouTube = () => {
             while (offset < totalSize) {
                 const chunkEnd = Math.min(offset + CHUNK_SIZE, totalSize);
                 const chunk = blob.slice(offset, chunkEnd);
-                const isLast = chunkEnd >= totalSize;
 
                 const headers = {
                     'Content-Type': blob.type || 'video/webm',
-                    'Content-Length': String(chunk.size),
                     'Content-Range': `bytes ${offset}-${chunkEnd - 1}/${totalSize}`,
                 };
 

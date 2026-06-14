@@ -23,24 +23,30 @@ export const StreamMode = () => {
     const streams = useStreams(screenVideoRef, cameraVideoRef, () => {});
     const recording = useRecording({
         screenStream: streams?.screenStream,
+        audioStream: streams?.audioStream,
         cameraStream: streams?.cameraStream,
         canvasRef,
+        useCanvas: true,
     });
     const streaming = useStreaming();
     const replay = useReplayBuffer();
 
-    // Cleanup streams on unmount when not recording/streaming
+    // Track active state in refs so unmount cleanup reads latest values
+    const activeRef = useRef(false);
+    useEffect(() => { activeRef.current = recording.isRecording || streaming.isStreaming; });
+
+    // Cleanup streams on unmount
     useEffect(() => {
         return () => {
-            if (!recording.isRecording && !streaming.isStreaming) streams.stopAll?.();
+            if (!activeRef.current) streams.stopAll?.();
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Scene switching shortcuts (1-4)
     useKeyboardShortcuts({
-        'ctrl+shift+r': () => { if (recording.isRecording) recording.stopRecording(); else setShowStreamPanel(prev => !prev); },
+        'ctrl+shift+r': () => { if (recording.isRecording) recording.stopRecording(); else recording.startRecording(); },
         'ctrl+shift+l': () => setShowStreamPanel(prev => !prev),
-        'ctrl+shift+b': () => { if (replay.isBuffering) replay.stopBuffering?.(); else replay.startBuffering?.(); },
+        'ctrl+shift+b': () => { if (replay.isBuffering) replay.saveReplay(); else handleStartReplay(); },
         '1': () => scenes.scenes?.[0] && scenes.setActiveSceneId(scenes.scenes[0].id),
         '2': () => scenes.scenes?.[1] && scenes.setActiveSceneId(scenes.scenes[1].id),
         '3': () => scenes.scenes?.[2] && scenes.setActiveSceneId(scenes.scenes[2].id),
@@ -56,16 +62,11 @@ export const StreamMode = () => {
         return () => window.removeEventListener('beforeunload', handler);
     }, [recording.isRecording, streaming.isStreaming]);
 
-    // Cleanup streams on unmount
-    useEffect(() => {
-        return () => {
-            if (!recording.isRecording && !streaming.isStreaming) {
-                streams.stopAll?.();
-            }
-        };
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // Canvas render loop — use refs for objects that change identity each render
+    const scenesRef = useRef(scenes);
+    const streamsRef = useRef(streams);
+    useEffect(() => { scenesRef.current = scenes; streamsRef.current = streams; });
 
-    // Canvas render loop
     useEffect(() => {
         let running = true;
         const loop = () => {
@@ -73,13 +74,14 @@ export const StreamMode = () => {
             const canvas = canvasRef.current;
             if (canvas) {
                 const ctx = canvas.getContext('2d');
-                scenes.renderScene(ctx, canvas, scenes.activeScene, streams);
+                const s = scenesRef.current;
+                s.renderScene(ctx, canvas, s.activeScene, streamsRef.current);
             }
             requestAnimationFrame(loop);
         };
         loop();
         return () => { running = false; };
-    }, [scenes, streams]);
+    }, []);
 
     // Auto-set first scene active
     useEffect(() => {
@@ -132,9 +134,7 @@ export const StreamMode = () => {
 
                 <div className="stream-ctrl-center">
                     {!recording.isRecording ? (
-                        <button className="stream-ctrl-record" onClick={() => {
-                            if (canvasRef.current) recording.startRecording(canvasRef.current, { width: 1920, height: 1080, bitrate: 8000000 });
-                        }}>
+                        <button className="stream-ctrl-record" onClick={() => recording.startRecording()}>
                             Record
                         </button>
                     ) : (

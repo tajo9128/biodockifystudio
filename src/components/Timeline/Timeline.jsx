@@ -100,10 +100,8 @@ export const Timeline = ({
                     onMove(dragging.clipId, newStart, newTrack);
                 }
             } else if (dragging.type === 'resize-left') {
-                const newStart = Math.max(0, dragging.origStart + dt);
                 const newDuration = Math.max(0.1, dragging.origDuration - dt);
-                onMove(dragging.clipId, newStart);
-                onResize(dragging.clipId, newDuration, false);
+                onResize(dragging.clipId, newDuration, true);
             } else if (dragging.type === 'resize-right') {
                 const newDuration = Math.max(0.1, dragging.origDuration + dt);
                 onResize(dragging.clipId, newDuration, false);
@@ -147,7 +145,7 @@ export const Timeline = ({
         const handleKeyDown = (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             if (e.code === 'KeyS' && selectedClipId) { e.preventDefault(); onSplit(); }
-            if (e.code === 'Delete' || e.code === 'Backspace') { if (selectedClipId) { e.preventDefault(); onDelete(); } }
+            if (e.code === 'Delete' || e.code === 'Backspace') { if (selectedClipId) { e.preventDefault(); onDelete(selectedClipId); } }
             if (e.code === 'Space') { e.preventDefault(); isPlaying ? onPause() : onPlay(); }
         };
         window.addEventListener('keydown', handleKeyDown);
@@ -210,19 +208,19 @@ export const Timeline = ({
                     onMouseDown={(e) => handleClipMouseDown(e, clip, 'left')} />
                 <div className="tl-clip-content">
                     <span className="tl-clip-label">{clip.label || clip.type}</span>
-                    {clip.speed !== 1 && <span className="tl-clip-speed">{clip.speed}x</span>}
+                    {(clip.speed ?? 1) !== 1 && <span className="tl-clip-speed">{clip.speed}x</span>}
                     <span className="tl-clip-duration">{formatTime(clip.duration)}</span>
                 </div>
                 {clipThumbnails[clip.id] && (
                     <div className="tl-clip-thumb" style={{ backgroundImage: `url(${clipThumbnails[clip.id]})` }} />
                 )}
-                {clip.filters.length > 0 && (
-                    <div className="tl-clip-filters">
-                        {clip.filters.map((f, i) => (
-                            <span key={i} className="tl-filter-dot" title={f.type} />
-                        ))}
-                    </div>
-                )}
+                    {(clip.filters?.length > 0) && (
+                        <div className="tl-clip-filters">
+                            {clip.filters.map((f, i) => (
+                                <span key={i} className="tl-filter-dot" title={f.filterId} />
+                            ))}
+                        </div>
+                    )}
                 {clip.keyframes && Object.keys(clip.keyframes).length > 0 && (
                     <div className="tl-clip-keyframes">
                         {Object.values(clip.keyframes).flat().map((kf, i) => (
@@ -324,7 +322,7 @@ export const Timeline = ({
                 <span className="tl-transport-time tl-transport-duration" aria-label={`Duration: ${formatTime(duration)}`}>{formatTime(duration)}</span>
                 <div className="tl-transport-spacer" />
                 <button className="tl-transport-btn" onClick={onSplit} disabled={!selectedClipId} title="Split (S)" aria-label="Split clip at playhead">Split</button>
-                <button className="tl-transport-btn" onClick={onDelete} disabled={!selectedClipId} title="Delete (Del)" aria-label="Delete selected clip">Delete</button>
+                <button className="tl-transport-btn" onClick={() => onDelete(selectedClipId)} disabled={!selectedClipId} title="Delete (Del)" aria-label="Delete selected clip">Delete</button>
                 <div className="tl-transport-spacer" />
                 <button className="tl-transport-btn" onClick={() => onZoomChange(z => Math.max(0.1, z * 0.8))} title="Zoom Out" aria-label="Zoom timeline out">-</button>
                 <span className="tl-zoom-label">{Math.round(zoom * 100)}%</span>

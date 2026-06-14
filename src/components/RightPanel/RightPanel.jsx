@@ -1,18 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FilterPanel } from '../Filters/FilterPanel';
+import { KeyframeEditor } from '../Timeline/KeyframeEditor';
+import { getTransitionList } from '../../utils/Transitions';
 import './RightPanel.css';
 
 export const RightPanel = ({
     isOpen, onClose,
     activeTool,
-    // Clip properties
     selectedClip,
-    // Filter panel props
     activeFilters, setActiveFilters,
-    // Keyframe props
     onRemoveKeyframe,
+    onAddKeyframe,
+    onSetTransition,
+    onAddTextOverlay,
 }) => {
+    const [textValue, setTextValue] = useState('');
+    const [textX, setTextX] = useState(50);
+    const [textY, setTextY] = useState(50);
+    const [textSize, setTextSize] = useState(24);
+
     if (!isOpen) return null;
+
+    const transitions = getTransitionList();
+    const activeTransition = selectedClip?.transitions?.out;
 
     return (
         <aside className="right-panel">
@@ -32,7 +42,7 @@ export const RightPanel = ({
                     <FilterPanel
                         isOpen={true}
                         onClose={onClose}
-                        activeFilters={activeFilters}
+                        activeFilters={activeFilters || []}
                         setActiveFilters={setActiveFilters}
                         embedded={true}
                     />
@@ -40,45 +50,108 @@ export const RightPanel = ({
 
                 {activeTool === 'transition' && (
                     <div className="rp-section">
-                        <div className="rp-label">Transition Type</div>
-                        <div className="rp-transition-grid">
-                            {['crossfade', 'fadeBlack', 'wipeLeft', 'wipeRight', 'wipeUp', 'wipeDown',
-                              'slideLeft', 'zoomIn', 'dissolve', 'barnDoor', 'iris', 'clockWipe', 'push'].map(t => (
-                                <button key={t} className="rp-transition-btn" title={t}>
-                                    {t.replace(/([A-Z])/g, ' $1').trim()}
-                                </button>
-                            ))}
-                        </div>
+                        {selectedClip ? (
+                            <>
+                                <div className="rp-label">Transition Type (applies to clip end)</div>
+                                <div className="rp-transition-grid">
+                                    {transitions.map(t => (
+                                        <button
+                                            key={t.id}
+                                            className={`rp-transition-btn ${activeTransition === t.id ? 'active' : ''}`}
+                                            title={t.name}
+                                            onClick={() => onSetTransition?.(t.id)}
+                                        >
+                                            {t.name}
+                                        </button>
+                                    ))}
+                                </div>
+                                {activeTransition && (
+                                    <button
+                                        className="btn btn-outline"
+                                        style={{ marginTop: '0.5rem', width: '100%' }}
+                                        onClick={() => onSetTransition?.(null)}
+                                    >
+                                        Remove Transition
+                                    </button>
+                                )}
+                            </>
+                        ) : (
+                            <p className="rp-empty">Select a clip first to apply transitions.</p>
+                        )}
                     </div>
                 )}
 
                 {activeTool === 'keyframe' && selectedClip && (
+                    <KeyframeEditor
+                        clip={selectedClip}
+                        onAddKeyframe={onAddKeyframe}
+                        onRemoveKeyframe={onRemoveKeyframe}
+                        onClose={onClose}
+                    />
+                )}
+
+                {activeTool === 'keyframe' && !selectedClip && (
                     <div className="rp-section">
-                        <div className="rp-label">Keyframes</div>
-                        <div className="rp-keyframe-list">
-                            {Object.entries(selectedClip.keyframes || {}).map(([param, kfs]) => (
-                                <div key={param} className="rp-keyframe-param">
-                                    <span className="rp-keyframe-param-name">{param}</span>
-                                    {kfs.map((kf, i) => (
-                                        <div key={i} className="rp-keyframe-item">
-                                            <span>t={kf.time.toFixed(2)}s</span>
-                                            <span>v={typeof kf.value === 'number' ? kf.value.toFixed(1) : kf.value}</span>
-                                            <button className="rp-keyframe-del" onClick={() => onRemoveKeyframe?.(selectedClip.id, param, kf.time)}>x</button>
-                                        </div>
-                                    ))}
-                                </div>
-                            ))}
-                            {Object.keys(selectedClip.keyframes || {}).length === 0 && (
-                                <p className="rp-empty">No keyframes. Select a clip and add keyframes to animate properties over time.</p>
-                            )}
-                        </div>
+                        <p className="rp-empty">Select a clip first to manage keyframes.</p>
                     </div>
                 )}
 
                 {activeTool === 'text' && (
                     <div className="rp-section">
-                        <div className="rp-label">Text Overlay</div>
-                        <p className="rp-empty">Use the Draw tool (D) to add annotations. Text overlays can be added via the AI assistant or timeline.</p>
+                        <div className="rp-label">Add Text Overlay</div>
+                        <div className="rp-field">
+                            <label>Text</label>
+                            <input
+                                type="text"
+                                className="rp-input"
+                                value={textValue}
+                                onChange={e => setTextValue(e.target.value)}
+                                placeholder="Enter text..."
+                            />
+                        </div>
+                        <div className="rp-field-row">
+                            <div className="rp-field">
+                                <label>X (%)</label>
+                                <input
+                                    type="number"
+                                    className="rp-input"
+                                    value={textX}
+                                    onChange={e => setTextX(parseFloat(e.target.value) || 0)}
+                                    min={0} max={100}
+                                />
+                            </div>
+                            <div className="rp-field">
+                                <label>Y (%)</label>
+                                <input
+                                    type="number"
+                                    className="rp-input"
+                                    value={textY}
+                                    onChange={e => setTextY(parseFloat(e.target.value) || 0)}
+                                    min={0} max={100}
+                                />
+                            </div>
+                        </div>
+                        <div className="rp-field">
+                            <label>Font Size</label>
+                            <input
+                                type="number"
+                                className="rp-input"
+                                value={textSize}
+                                onChange={e => setTextSize(parseFloat(e.target.value) || 24)}
+                                min={8} max={120}
+                            />
+                        </div>
+                        <button
+                            className="btn btn-primary"
+                            style={{ marginTop: '0.5rem', width: '100%' }}
+                            disabled={!textValue.trim()}
+                            onClick={() => {
+                                onAddTextOverlay?.(textValue, textX, textY, textSize);
+                                setTextValue('');
+                            }}
+                        >
+                            Add Text Overlay
+                        </button>
                     </div>
                 )}
 
@@ -101,6 +174,18 @@ export const RightPanel = ({
                             <span>Track</span>
                             <span>{selectedClip.trackIndex}</span>
                         </div>
+                        {(selectedClip.filters?.length > 0) && (
+                            <div className="rp-prop-row">
+                                <span>Filters</span>
+                                <span>{selectedClip.filters.length}</span>
+                            </div>
+                        )}
+                        {selectedClip.transitions?.out && (
+                            <div className="rp-prop-row">
+                                <span>Transition</span>
+                                <span>{selectedClip.transitions.out}</span>
+                            </div>
+                        )}
                     </div>
                 )}
 

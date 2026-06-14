@@ -12,6 +12,7 @@ import { EXPORT_FORMATS, getDefaultFormat } from '../constants/formats';
 import { useAI } from '../hooks/useAI';
 import { useYouTube } from '../hooks/useYouTube';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { recordingStore } from '../utils/RecordingStore';
 
 // UI Components
 import { ControlBar } from './Controls/ControlBar';
@@ -43,7 +44,7 @@ const ScreenRecorder = () => {
     const cameraVideoRef = useRef(null);
     const workerRef = useRef(null);
 
-    const [status, setStatus] = useState('idle');
+    const [, setStatus] = useState('idle');
     const {
         screenStream, audioStream, cameraStream, systemAudioStream,
         screenDimensions, cameraDimensions,
@@ -85,9 +86,12 @@ const ScreenRecorder = () => {
     const [showTimeline, setShowTimeline] = useState(false);
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
+    const toastTimerRef = useRef(null);
+
     const showToast = useCallback((title, message, type = 'info') => {
         setToast({ title, message, type });
-        setTimeout(() => setToast(null), 4000);
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = setTimeout(() => setToast(null), 4000);
     }, []);
 
     const {
@@ -107,17 +111,19 @@ const ScreenRecorder = () => {
             showToast('Recording Failed', 'No video data was captured.', 'error');
             return;
         }
+        recordingStore.set(blob, mimeType);
         setPendingRecording({ blob, mimeType });
     }, [showToast]);
 
     const {
-        isRecording, isPaused, startRecording: startMediaRecording, pauseRecording, resumeRecording, stopRecording, resetRecording
+        isRecording, isPaused, status: recordingStatus, startRecording: startMediaRecording, pauseRecording, resumeRecording, stopRecording, resetRecording
     } = useRecording({
         screenStream, audioStream, cameraStream,
         activeBg, screenScale, canvasRef,
         recordingQuality,
         bitrate: QUALITY_PRESETS[recordingQuality].bitrate,
         mimeType: EXPORT_FORMATS.find(f => f.id === recordingFormat)?.mimeType,
+        useCanvas: cameraStream || activeBg !== 'none' || screenScale < 1.0 || webcamOnly || annotationEnabled || zoomEnabled || cursorFxEnabled,
         onComplete: handleRecordingComplete
     });
 
@@ -132,7 +138,7 @@ const ScreenRecorder = () => {
         'ctrl+shift+p': () => { if (isPaused) resumeRecording(); else if (isRecording) pauseRecording(); },
         'ctrl+shift+c': () => toggleCamera(),
         'ctrl+shift+m': () => toggleMic(),
-        'ctrl+shift+a': () => { setAnnotationEnabled(prev => !prev); setCursorFxEnabled(prev => !prev); },
+        'ctrl+shift+a': () => setAnnotationEnabled(prev => !prev),
         'ctrl+shift+x': () => setCursorFxEnabled(prev => !prev),
     });
 
@@ -281,18 +287,18 @@ Rules:
             else if (cameraStream) { tw = cameraDimensions.width; th = cameraDimensions.height; }
             else { tw = 1920; th = 1080; }
         }
-        const isCanvasNeeded = cameraStream || activeBg !== 'none' || screenScale < 1.0;
+        const isCanvasNeeded = cameraStream || activeBg !== 'none' || screenScale < 1.0 || webcamOnly || annotationEnabled || zoomEnabled || cursorFxEnabled;
         if (!isCanvasNeeded && tw > 1920) { th = 1920 * (th / tw); tw = 1920; }
         if (tw > 0 && th > 0 && (canvas.width !== tw || canvas.height !== th)) {
             canvas.width = tw; canvas.height = th; setCurrentDimensions({ width: tw, height: th });
         }
-    }, [screenStream, cameraStream, activeBg, screenScale, recordingQuality, screenDimensions, cameraDimensions]);
+    }, [screenStream, cameraStream, activeBg, screenScale, recordingQuality, screenDimensions, cameraDimensions, webcamOnly, annotationEnabled, zoomEnabled, cursorFxEnabled]);
 
     const renderFrame = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d', { alpha: false });
-        const isCanvasNeeded = cameraStream || activeBg !== 'none' || screenScale < 1.0 || (recordingQuality && recordingQuality !== 'native') || webcamOnly || annotationEnabled || zoomEnabled;
+        const isCanvasNeeded = cameraStream || activeBg !== 'none' || screenScale < 1.0 || (recordingQuality && recordingQuality !== 'native') || webcamOnly || annotationEnabled || zoomEnabled || cursorFxEnabled;
         if (!isCanvasNeeded) return;
 
         const bubbleSize = canvas.height * webcamScale;
@@ -302,7 +308,7 @@ Rules:
         const preset = BACKGROUND_PRESETS.find(p => p.id === activeBg);
         if (preset && preset.colors) {
             const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-            preset.colors.forEach((c, i) => grad.addColorStop(i / (preset.colors.length - 1), c));
+            preset.colors.forEach((c, i) => grad.addColorStop(preset.colors.length === 1 ? 0 : i / (preset.colors.length - 1), c));
             ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
         } else {
             ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -344,7 +350,7 @@ Rules:
         annotation.drawAnnotations(ctx);
         overlays.drawOverlays(ctx, 0);
         applyFilters(ctx, canvas, activeFilters);
-    }, [cameraStream, screenStream, activeBg, webcamScale, screenScale, webcamShape, recordingQuality, webcamOnly, annotationEnabled, zoomEnabled, drawCursorFx, annotation, applyZoom, restoreZoom, activeFilters, overlays]);
+    }, [cameraStream, screenStream, activeBg, webcamScale, screenScale, webcamShape, recordingQuality, webcamOnly, annotationEnabled, zoomEnabled, cursorFxEnabled, drawCursorFx, annotation, applyZoom, restoreZoom, activeFilters, overlays]);
 
     const launchLoop = useCallback(() => {
         const isCanvasNeeded = cameraStream || activeBg !== 'none' || screenScale < 1.0 || recordingQuality !== 'native' || webcamOnly || cursorFxEnabled || annotationEnabled || zoomEnabled;
@@ -449,15 +455,16 @@ Rules:
 
             <PreviewStage canvasRef={canvasRef} screenVideoRef={screenVideoRef} cameraVideoRef={cameraVideoRef}
                 cameraStream={cameraStream} screenStream={screenStream} activeBg={activeBg} screenScale={screenScale}
-                isRecording={isRecording} status={status} countdown={countdown} recordingQuality={recordingQuality}
+                isRecording={isRecording} status={recordingStatus} countdown={countdown} recordingQuality={recordingQuality}
                 currentDimensions={currentDimensions} handleMouseDown={handleMouseDown} handleMouseMove={handleMouseMove}
-                handleMouseUp={handleMouseUp} elapsedTime={formatTime(elapsedTime)} />
+                handleMouseUp={handleMouseUp} elapsedTime={formatTime(elapsedTime)}
+                webcamOnly={webcamOnly} annotationEnabled={annotationEnabled} zoomEnabled={zoomEnabled} cursorFxEnabled={cursorFxEnabled} />
 
             {annotationEnabled && (
                 <AnnotationToolbar tool={annotation.tool} setTool={annotation.setTool} color={annotation.color}
                     setColor={annotation.setColor} strokeWidth={annotation.strokeWidth} setStrokeWidth={annotation.setStrokeWidth}
                     undo={annotation.undo} redo={annotation.redo} clearAnnotations={annotation.clearAnnotations}
-                    canUndo={annotation.hasAnnotations} canRedo={false} />
+                    canUndo={annotation.hasAnnotations} canRedo={annotation.canRedo} />
             )}
 
             <ControlBar screenStream={screenStream} cameraStream={cameraStream} audioStream={audioStream}
@@ -498,9 +505,15 @@ Rules:
                     onSelectClip={timeline.setSelectedClipId}
                     onSeek={timeline.seek}
                     onSplit={timeline.splitAtPlayhead}
-                    onDelete={timeline.deleteSelected}
+                    onDelete={(id) => timeline.removeClip(id || timeline.selectedClipId)}
+                    onDuplicate={timeline.duplicateClip}
+                    onSpeed={timeline.setClipSpeed}
                     onMove={timeline.moveClip}
                     onResize={timeline.resizeClip}
+                    onAddTrack={timeline.addTrack}
+                    onRemoveTrack={timeline.removeTrack}
+                    onToggleMute={timeline.toggleTrackMute}
+                    onToggleLock={timeline.toggleTrackLock}
                     onPlay={timeline.play}
                     onPause={timeline.pause}
                     onStop={timeline.stop}

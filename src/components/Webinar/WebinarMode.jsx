@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useScenes } from '../../hooks/useScenes';
 import { useStreams } from '../../hooks/useStreams';
 import { useRecording } from '../../hooks/useRecording';
@@ -19,70 +19,78 @@ export const WebinarMode = () => {
     const [showLowerThird, setShowLowerThird] = useState(true);
     const [lowerThirdName, setLowerThirdName] = useState('Speaker Name');
     const [lowerThirdTitle, setLowerThirdTitle] = useState('Title / Role');
-    const [qnaItems] = useState([]);
     const [showQna, setShowQna] = useState(false);
 
     const scenes = useScenes();
     const streams = useStreams(screenVideoRef, cameraVideoRef, () => {});
     const recording = useRecording({
         screenStream: streams?.screenStream,
+        audioStream: streams?.audioStream,
         cameraStream: streams?.cameraStream,
         canvasRef,
+        useCanvas: true,
     });
     const streaming = useStreaming();
     const replay = useReplayBuffer();
 
-    // Render loop
-    const renderFrame = useCallback(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        scenes.renderScene(ctx, canvas, scenes.activeScene, streams);
-
-        // Lower third overlay
-        if (showLowerThird && (lowerThirdName || lowerThirdTitle)) {
-            renderTitleTemplate('lowerThird', ctx, canvas, {
-                name: lowerThirdName,
-                title: lowerThirdTitle,
-            });
+    // Auto-set first scene active so MixerPanel works
+    useEffect(() => {
+        if (!scenes.activeSceneId && scenes.scenes.length > 0) {
+            scenes.setActiveSceneId(scenes.scenes[0].id);
         }
+    }, [scenes.activeSceneId, scenes.scenes]);
 
-        // Q&A overlay
-        if (showQna && qnaItems.length > 0) {
-            const latest = qnaItems[0];
-            ctx.save();
-            ctx.fillStyle = 'rgba(0,0,0,0.7)';
-            const boxY = canvas.height * 0.05;
-            ctx.fillRect(canvas.width * 0.02, boxY, canvas.width * 0.4, 60);
-            ctx.fillStyle = '#f59e0b';
-            ctx.font = 'bold 14px Outfit, sans-serif';
-            ctx.fillText('Q:', canvas.width * 0.03, boxY + 22);
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '14px Outfit, sans-serif';
-            ctx.fillText(latest.question?.slice(0, 60) || '', canvas.width * 0.05, boxY + 22);
-            if (latest.answer) {
-                ctx.fillStyle = '#10b981';
-                ctx.font = 'bold 14px Outfit, sans-serif';
-                ctx.fillText('A:', canvas.width * 0.03, boxY + 46);
-                ctx.fillStyle = '#e2e8f0';
-                ctx.font = '14px Outfit, sans-serif';
-                ctx.fillText(latest.answer?.slice(0, 60) || '', canvas.width * 0.05, boxY + 46);
-            }
-            ctx.restore();
-        }
-    }, [scenes, streams, showLowerThird, lowerThirdName, lowerThirdTitle, showQna, qnaItems]);
+    // Cleanup streams on unmount
+    const activeRef = useRef(false);
+    useEffect(() => { activeRef.current = recording.isRecording || streaming.isStreaming; });
+    useEffect(() => {
+        return () => {
+            if (!activeRef.current) streams.stopAll?.();
+        };
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Animation loop
-    React.useEffect(() => {
+    // Guard against accidental page close during streaming/recording
+    useEffect(() => {
+        const active = recording.isRecording || streaming.isStreaming;
+        if (!active) return;
+        const handler = (e) => { e.preventDefault(); e.returnValue = ''; };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [recording.isRecording, streaming.isStreaming]);
+
+    // Render loop — use refs to avoid restarting every render
+    const scenesRef = useRef(scenes);
+    const streamsRef = useRef(streams);
+    const ltRef = useRef({ show: showLowerThird, name: lowerThirdName, title: lowerThirdTitle, showQna });
+    useEffect(() => {
+        scenesRef.current = scenes;
+        streamsRef.current = streams;
+        ltRef.current = { show: showLowerThird, name: lowerThirdName, title: lowerThirdTitle, showQna };
+    });
+
+    useEffect(() => {
         let running = true;
         const loop = () => {
             if (!running) return;
-            renderFrame();
+            const canvas = canvasRef.current;
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                const s = scenesRef.current;
+                s.renderScene(ctx, canvas, s.activeScene, streamsRef.current);
+
+                const lt = ltRef.current;
+                if (lt.show && (lt.name || lt.title)) {
+                    renderTitleTemplate('lowerThird', ctx, canvas, {
+                        name: lt.name,
+                        title: lt.title,
+                    });
+                }
+            }
             requestAnimationFrame(loop);
         };
         loop();
         return () => { running = false; };
-    }, [renderFrame]);
+    }, []);
 
     return (
         <div className="webinar-mode">
@@ -152,9 +160,7 @@ export const WebinarMode = () => {
                                 Stop Recording
                             </button>
                         ) : (
-                            <button className="webinar-record-btn" onClick={() => {
-                                if (canvasRef.current) recording.startRecording(canvasRef.current, { width: 1920, height: 1080, bitrate: 8000000 });
-                            }}>
+                            <button className="webinar-record-btn" onClick={() => recording.startRecording()}>
                                 Record
                             </button>
                         )}
