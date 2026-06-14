@@ -52,7 +52,7 @@
   background: var(--bg-card);
   border-radius: 10px;
   padding: 0.8rem;
-  z-index: 20;
+  z-index: var(--z-controls);
   width: 180px;
   
 }

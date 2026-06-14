@@ -58,14 +58,14 @@ export const AIAssistant = ({
     return (
         <>
             {/* Floating button */}
-            <button className={`ai-fab ${isOpen ? 'ai-fab-active' : ''}`} onClick={onToggle} title="AI Assistant">
+            <button className={`ai-fab ${isOpen ? 'ai-fab-active' : ''}`} onClick={onToggle} title="AI Assistant" aria-label="Toggle AI Assistant" aria-expanded={isOpen}>
                 <span className="ai-fab-icon">AI</span>
                 {ollamaConnected && <span className="ai-fab-status-dot" />}
             </button>
 
             {/* Drawer */}
             {isOpen && (
-                <div className="ai-drawer">
+                <div className="ai-drawer" role="dialog" aria-label="AI Assistant">
                     <div className="ai-drawer-header">
                         <div className="ai-drawer-header-left">
                             <span className="ai-drawer-icon">AI</span>

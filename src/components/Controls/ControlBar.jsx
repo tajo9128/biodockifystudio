@@ -82,7 +82,7 @@ export const ControlBar = ({
         <div className="control-bar-container">
             {/* Unified Settings Popover */}
             {activePanel && !isRecording && (
-                <div className="settings-popover">
+                <div className="settings-popover" role="dialog" aria-label={`${activePanel} settings`}>
                     {activePanel === 'camera' && (
                         <div className="setting-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '1.5rem' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
@@ -212,11 +212,13 @@ export const ControlBar = ({
                 </div>
             )}
 
-            <div className="control-bar">
+            <div className="control-bar" role="toolbar" aria-label="Recording controls">
                 <div className="source-toggles">
                     <div className="source-selector">
                         <button className={`btn-pill ${screenStream ? 'active' : ''}`}
-                            onClick={() => toggleScreen(sourceType)} disabled={isRecording}>
+                            onClick={() => toggleScreen(sourceType)} disabled={isRecording}
+                            aria-pressed={!!screenStream}
+                            aria-label={`Capture ${sourceType === 'window' ? 'window' : sourceType === 'tab' ? 'browser tab' : 'full screen'}`}>
                             {screenStream ? '● ' : ''}{sourceType === 'window' ? 'Window' : sourceType === 'tab' ? 'Tab' : 'Screen'}
                         </button>
                         {!isRecording && (
@@ -232,7 +234,9 @@ export const ControlBar = ({
                     <div className="vertical-divider" style={{ width: '1px', background: 'var(--glass-border)', margin: '0 0.2rem' }}></div>
                     <button className={`btn-pill ${systemAudioStream ? 'active' : ''}`}
                         onClick={toggleSystemAudio} disabled={isRecording}
-                        title="Capture desktop/system audio">
+                        title="Capture desktop/system audio"
+                        aria-pressed={!!systemAudioStream}
+                        aria-label="Toggle system audio capture">
                         {systemAudioStream ? '● Sys Audio' : 'Sys Audio'}
                     </button>
                     <div className="grid">
@@ -399,7 +403,8 @@ export const ControlBar = ({
                                         startRecording();
                                     }}
                                     disabled={!screenStream && !cameraStream}
-                                    title="Space to start/stop">
+                                    title="Space to start/stop"
+                                    aria-label="Start recording">
                                     Start Recording
                                 </button>
                             ) : (
@@ -407,12 +412,14 @@ export const ControlBar = ({
                                     <button className={`btn ${isPaused ? 'btn-primary' : 'btn-outline'}`}
                                         onClick={isPaused ? resumeRecording : pauseRecording}
                                         style={{ minWidth: '100px', justifyContent: 'center' }}
-                                        title="P to pause/resume">
+                                        title="P to pause/resume"
+                                        aria-label={isPaused ? 'Resume recording' : 'Pause recording'}>
                                         {isPaused ? 'Resume' : 'Pause'}
                                     </button>
                                     <button className="btn btn-danger"
                                         onClick={stopRecording}
-                                        title="Space to stop">
+                                        title="Space to stop"
+                                        aria-label="Stop recording">
                                         Stop
                                     </button>
                                 </div>

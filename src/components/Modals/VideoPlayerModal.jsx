@@ -10,9 +10,9 @@ export const VideoPlayerModal = ({ url, onClose }) => {
     if (!url) return null;
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Video player">
             <div className="modal-content" onClick={e => e.stopPropagation()}>
-                <button className="btn-icon-bg modal-close" onClick={onClose}>x</button>
+                <button className="btn-icon-bg modal-close" onClick={onClose} aria-label="Close video player">x</button>
                 <video
                     src={url}
                     controls

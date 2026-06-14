@@ -216,7 +216,7 @@
     top: 0;
     width: 2px;
     height: 100%;
-    z-index: 10;
+    z-index: var(--z-mid);
     pointer-events: all;
     cursor: ew-resize;
     transform: translateX(-1px);
@@ -354,7 +354,7 @@
 
 .tl-speed-popup {
     position: absolute;
-    z-index: 20;
+    z-index: var(--z-controls);
     background: var(--surface, #1e1e2e);
     border: 1px solid var(--glass-border, rgba(255,255,255,0.15));
     border-radius: 8px;

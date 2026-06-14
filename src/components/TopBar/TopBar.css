@@ -8,7 +8,7 @@
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     border-bottom: 1px solid var(--glass-border);
-    z-index: 100;
+    z-index: var(--z-panel);
     flex-shrink: 0;
 }
 

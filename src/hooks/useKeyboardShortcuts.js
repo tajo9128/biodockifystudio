@@ -2,7 +2,7 @@ import { useEffect, useCallback } from 'react';
 
 // Keyboard shortcuts handler for ScreenStudio
 // scope: 'recording' | 'editing' | 'global'
-export const useKeyboardShortcuts = (shortcuts = {}, scope = 'global') => {
+export const useKeyboardShortcuts = (shortcuts = {}, _scope = 'global') => {
     const handleKeyDown = useCallback((e) => {
         // Skip if user is typing in an input/textarea
         if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;

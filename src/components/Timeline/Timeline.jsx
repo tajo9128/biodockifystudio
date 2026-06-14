@@ -245,9 +245,11 @@ export const Timeline = ({
                         <span className="tl-track-name">{track.name}</span>
                         <div className="tl-track-controls">
                             <button className={`tl-btn ${track.muted ? 'tl-btn-muted' : ''}`}
-                                onClick={() => onToggleMute?.(track.id)} title="Mute">M</button>
+                                onClick={() => onToggleMute?.(track.id)} title="Mute"
+                                aria-pressed={!!track.muted} aria-label={`Mute track ${track.id}`}>M</button>
                             <button className={`tl-btn ${track.locked ? 'tl-btn-locked' : ''}`}
-                                onClick={() => onToggleLock?.(track.id)} title="Lock">L</button>
+                                onClick={() => onToggleLock?.(track.id)} title="Lock"
+                                aria-pressed={!!track.locked} aria-label={`Lock track ${track.id}`}>L</button>
                             {tracks.length > 1 && (
                                 <button className="tl-btn tl-btn-remove" onClick={() => onRemoveTrack?.(track.id)} title="Remove Track">-</button>
                             )}
@@ -312,21 +314,21 @@ export const Timeline = ({
             )}
 
             {/* Transport controls */}
-            <div className="tl-transport">
-                <button className="tl-transport-btn" onClick={onStop} title="Stop">Stop</button>
-                <button className="tl-transport-btn tl-transport-play" onClick={isPlaying ? onPause : onPlay}>
+            <div className="tl-transport" role="toolbar" aria-label="Timeline transport controls">
+                <button className="tl-transport-btn" onClick={onStop} title="Stop" aria-label="Stop playback">Stop</button>
+                <button className="tl-transport-btn tl-transport-play" onClick={isPlaying ? onPause : onPlay} aria-label={isPlaying ? 'Pause playback' : 'Play'}>
                     {isPlaying ? 'Pause' : 'Play'}
                 </button>
-                <span className="tl-transport-time">{formatTime(currentTime)}</span>
+                <span className="tl-transport-time" aria-label={`Current time: ${formatTime(currentTime)}`}>{formatTime(currentTime)}</span>
                 <span className="tl-transport-divider">/</span>
-                <span className="tl-transport-time tl-transport-duration">{formatTime(duration)}</span>
+                <span className="tl-transport-time tl-transport-duration" aria-label={`Duration: ${formatTime(duration)}`}>{formatTime(duration)}</span>
                 <div className="tl-transport-spacer" />
-                <button className="tl-transport-btn" onClick={onSplit} disabled={!selectedClipId} title="Split (S)">Split</button>
-                <button className="tl-transport-btn" onClick={onDelete} disabled={!selectedClipId} title="Delete (Del)">Delete</button>
+                <button className="tl-transport-btn" onClick={onSplit} disabled={!selectedClipId} title="Split (S)" aria-label="Split clip at playhead">Split</button>
+                <button className="tl-transport-btn" onClick={onDelete} disabled={!selectedClipId} title="Delete (Del)" aria-label="Delete selected clip">Delete</button>
                 <div className="tl-transport-spacer" />
-                <button className="tl-transport-btn" onClick={() => onZoomChange(z => Math.max(0.1, z * 0.8))} title="Zoom Out">-</button>
+                <button className="tl-transport-btn" onClick={() => onZoomChange(z => Math.max(0.1, z * 0.8))} title="Zoom Out" aria-label="Zoom timeline out">-</button>
                 <span className="tl-zoom-label">{Math.round(zoom * 100)}%</span>
-                <button className="tl-transport-btn" onClick={() => onZoomChange(z => Math.min(10, z * 1.25))} title="Zoom In">+</button>
+                <button className="tl-transport-btn" onClick={() => onZoomChange(z => Math.min(10, z * 1.25))} title="Zoom In" aria-label="Zoom timeline in">+</button>
             </div>
         </div>
     );

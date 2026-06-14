@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { LoadingSpinner } from '../LoadingSpinner';
 import './YouTubeUploadModal.css';
 
 const CATEGORIES = [
@@ -69,7 +70,7 @@ export const YouTubeUploadModal = ({
     if (!isOpen) return null;
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Upload to YouTube">
             <div className="modal-content yt-modal" onClick={e => e.stopPropagation()}>
                 <div className="yt-modal-header">
                     <h2>Upload to YouTube</h2>
@@ -140,7 +141,7 @@ export const YouTubeUploadModal = ({
                                             onClick={handleGenerateAI}
                                             disabled={isGeneratingAI}
                                         >
-                                            {isGeneratingAI ? 'Generating...' : 'Generate with AI'}
+                                            {isGeneratingAI ? <LoadingSpinner text="Generating..." size="sm" /> : 'Generate with AI'}
                                         </button>
                                     )}
                                 </div>
@@ -216,7 +217,7 @@ export const YouTubeUploadModal = ({
                                     onClick={handleUpload}
                                     disabled={isUploading || !title.trim()}
                                 >
-                                    {isUploading ? 'Uploading...' : 'Upload'}
+                                    {isUploading ? <LoadingSpinner text="Uploading..." size="sm" /> : 'Upload'}
                                 </button>
                             </div>
                         </>

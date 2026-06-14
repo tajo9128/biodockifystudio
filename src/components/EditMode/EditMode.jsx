@@ -112,10 +112,10 @@ export const EditMode = () => {
                 if (clipId) {
                     const clip = timeline.clips.find(c => c.id === clipId);
                     if (clip) {
-                        const newFilter = { name: command.filter, params: command.params || {} };
+                        const newFilter = { filterId: command.filter, params: command.params || {} };
                         const existing = clip.filters || [];
-                        // Replace if same filter name exists, else append
-                        const idx = existing.findIndex(f => f.name === command.filter);
+                        // Replace if same filter exists, else append
+                        const idx = existing.findIndex(f => f.filterId === command.filter);
                         const updated = idx >= 0
                             ? existing.map((f, i) => i === idx ? newFilter : f)
                             : [...existing, newFilter];
@@ -129,7 +129,7 @@ export const EditMode = () => {
                 if (clipId && command.filter) {
                     const clip = timeline.clips.find(c => c.id === clipId);
                     if (clip) {
-                        const updated = (clip.filters || []).filter(f => f.name !== command.filter);
+                        const updated = (clip.filters || []).filter(f => f.filterId !== command.filter);
                         timeline.updateClip(clipId, { filters: updated });
                         setActiveFilters(updated);
                     }
