@@ -1,31 +1,30 @@
 .tool-sidebar {
-    width: var(--sidebar-w, 56px);
+    width: var(--sidebar-w, 120px);
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 0.5rem 0;
+    gap: 3px;
+    padding: 0.5rem 0.4rem;
     background: var(--nav-bg);
     border-right: 1px solid var(--glass-border);
     flex-shrink: 0;
 }
 
 .tool-sidebar-btn {
-    width: 40px;
-    height: 40px;
     display: flex;
     align-items: center;
-    justify-content: center;
-    border-radius: 10px;
+    gap: 0.5rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 8px;
     border: 1px solid transparent;
     background: transparent;
     color: var(--text-muted);
     font-family: inherit;
-    font-size: 0.75rem;
-    font-weight: 800;
+    font-size: 0.72rem;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
-    letter-spacing: 0.05em;
+    transition: all 0.15s;
+    text-align: left;
+    white-space: nowrap;
 }
 
 .tool-sidebar-btn:hover {
@@ -41,5 +40,18 @@
 }
 
 .tool-sidebar-icon {
-    font-size: 0.8rem;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.08);
+    font-size: 0.65rem;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+
+.tool-sidebar-label {
+    font-weight: 600;
 }

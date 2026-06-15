@@ -22,6 +22,7 @@ export const ToolSidebar = ({ activeTool, onToolChange }) => {
                     title={tool.label}
                 >
                     <span className="tool-sidebar-icon">{tool.icon}</span>
+                    <span className="tool-sidebar-label">{tool.label}</span>
                 </button>
             ))}
         </aside>
