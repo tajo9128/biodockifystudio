@@ -12,7 +12,7 @@
   --topbar-h: 48px;
   --sidebar-w: 56px;
   --rightpanel-w: 280px;
-  --bottombar-h: 200px;
+  --bottombar-h: 45vh;
   --bottombar-h-compact: 80px;
 
   /* Z-index scale — use these instead of hardcoded values */

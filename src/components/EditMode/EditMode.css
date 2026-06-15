@@ -6,9 +6,9 @@
 }
 
 .edit-mode-main {
-    flex: 1;
+    flex: 1 1 55%;
     display: flex;
-    min-height: 0;
+    min-height: 100px;
     overflow: hidden;
 }
 
@@ -17,14 +17,40 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 1rem;
+    padding: 0.5rem;
     min-width: 0;
     overflow: hidden;
 }
 
+.edit-mode-canvas .preview-wrapper {
+    max-width: 640px;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+}
+
+.edit-mode-canvas canvas,
+.edit-mode-canvas video {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 8px;
+}
+
 .edit-mode-timeline {
+    flex: 1 1 45%;
     flex-shrink: 0;
-    height: var(--bottombar-h, 200px);
-    border-top: 1px solid var(--glass-border);
+    min-height: 220px;
+    border-top: 2px solid var(--glass-border);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.edit-mode-timeline > div:first-child {
+    flex-shrink: 0;
+}
+
+.edit-mode-timeline > .timeline-container {
+    flex: 1;
+    min-height: 0;
 }

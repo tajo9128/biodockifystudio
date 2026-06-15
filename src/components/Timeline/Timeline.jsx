@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { ClipContextMenu } from './ClipContextMenu';
 import './Timeline.css';
 
-const TRACK_HEIGHT = 56;
+const TRACK_HEIGHT = 48;
 const TIME_SCALE_BASE = 80; // pixels per second at zoom=1
 
 export const Timeline = ({
@@ -236,6 +236,7 @@ export const Timeline = ({
 
     return (
         <div className="timeline-container" ref={containerRef} onWheel={handleWheel}>
+            <div className="tl-content-row">
             {/* Track headers */}
             <div className="tl-track-headers">
                 {tracks.map((track, _i) => (
@@ -277,6 +278,7 @@ export const Timeline = ({
                     <div className="tl-playhead-head" />
                     <div className="tl-playhead-line" />
                 </div>
+            </div>
             </div>
 
             {/* Speed slider popup */}
