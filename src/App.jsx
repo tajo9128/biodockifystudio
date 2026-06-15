@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Analytics } from '@vercel/analytics/react';
+import { lazy, Suspense } from 'react';
+const Analytics = lazy(() => import('@vercel/analytics/react').then(m => ({ default: m.Analytics })));
 import { ThemeProvider } from './context/ThemeContext.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { AppShell } from './components/AppShell/AppShell';
@@ -29,7 +30,7 @@ function App() {
                 <Route path="/settings" element={<SettingsPage />} />
               </Route>
             </Routes>
-            <Analytics />
+            <Suspense fallback={null}><Analytics /></Suspense>
         </ThemeProvider>
       </Router>
     </ErrorBoundary>

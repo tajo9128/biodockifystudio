@@ -5,15 +5,15 @@ export const useRecording = ({
     screenStream,
     audioStream,
     cameraStream,
-    activeBg,
-    screenScale,
+    activeBg = 'none',
+    screenScale = 1.0,
     canvasRef,
     recordingQuality = 'native',
     bitrate = 8000000,
     mimeType: preferredMimeType,
     useCanvas: useCanvasProp,
     onComplete
-}) => {
+} = {}) => {
     const [isRecording, setIsRecording] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
     const [status, setStatus] = useState('idle');
