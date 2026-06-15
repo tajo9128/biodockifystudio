@@ -1,0 +1,51 @@
+.clip-monitor-overlay {
+    position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.85);
+}
+.clip-monitor {
+    background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: 16px;
+    width: 680px; max-width: 90vw; overflow: hidden;
+}
+.cm-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.75rem 1rem; border-bottom: 1px solid var(--glass-border);
+    font-size: 0.85rem; font-weight: 600; color: var(--text-main);
+}
+.cm-header button {
+    background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;
+}
+.cm-viewer {
+    position: relative; background: #000; aspect-ratio: 16/9;
+}
+.cm-viewer video { width: 100%; height: 100%; object-fit: contain; }
+.cm-in-marker, .cm-out-marker {
+    position: absolute; top: 0; width: 3px; height: 100%;
+}
+.cm-in-marker { background: #10b981; }
+.cm-out-marker { background: #ef4444; }
+.cm-scrub { padding: 0.5rem 1rem; }
+.cm-scrub input { width: 100%; accent-color: var(--primary); }
+.cm-range-labels { display: flex; justify-content: space-between; font-size: 0.65rem; font-family: monospace; color: var(--text-muted); padding: 0 2px; }
+.cm-controls {
+    display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 1rem;
+    border-top: 1px solid var(--glass-border);
+}
+.cm-controls button {
+    padding: 0.3rem 0.6rem; border: 1px solid var(--glass-border); border-radius: 6px;
+    background: var(--glass); color: var(--text-main); font-size: 0.7rem; cursor: pointer;
+    font-family: inherit;
+}
+.cm-controls button:hover { background: var(--glass-hover); }
+.cm-btn-hint { font-size: 0.55rem; color: var(--text-muted); background: var(--glass); padding: 1px 4px; border-radius: 3px; }
+.cm-time { margin-left: auto; font-size: 0.75rem; font-family: monospace; color: var(--text-main); }
+.cm-actions {
+    display: flex; gap: 0.5rem; padding: 0.75rem 1rem; border-top: 1px solid var(--glass-border);
+}
+.cm-actions button {
+    flex: 1; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--primary);
+    background: rgba(139,92,246,0.1); color: var(--primary); font-weight: 600;
+    cursor: pointer; font-family: inherit; font-size: 0.75rem;
+}
+.cm-actions button:hover { background: var(--primary); color: white; }
+
+.clip-bin-add svg { width: 12px; height: 12px; }

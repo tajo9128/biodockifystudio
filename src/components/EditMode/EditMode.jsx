@@ -16,7 +16,10 @@ import { useStreams } from '../../hooks/useStreams';
 import { useRecording } from '../../hooks/useRecording';
 import { useAudioLevel } from '../../hooks/useAudioLevel';
 import { BACKGROUND_PRESETS } from '../../constants/backgrounds';
-import     './EditMode.css';
+import { useClipBin } from '../../hooks/useClipBin';
+import { ClipBin } from './ClipBin';
+import { ClipMonitor } from './ClipMonitor';
+import './EditMode.css';
 
 export const EditMode = () => {
     const navigate = useNavigate();
@@ -50,6 +53,7 @@ export const EditMode = () => {
         canvasRef,
     });
     const _audioLevel = useAudioLevel(streams?.audioStream);
+    const clipBin = useClipBin();
 
     const selectedClip = timeline.clips.find(c => c.id === timeline.selectedClipId);
 
@@ -89,6 +93,7 @@ export const EditMode = () => {
     // Import media file into timeline
     const fileInputRef = useRef(null);
     const [isDragOver, setIsDragOver] = useState(false);
+    const [previewClip, setPreviewClip] = useState(null);
 
     const importFiles = useCallback((files) => {
         Array.from(files).forEach(file => {
@@ -138,6 +143,51 @@ export const EditMode = () => {
     const triggerUpload = useCallback(() => {
         fileInputRef.current?.click();
     }, []);
+
+    const handleAddToTimeline = useCallback((clip) => {
+        timeline.addClip(0, {
+            sourceUrl: clip.url,
+            duration: clip.duration || 10,
+            sourceEnd: clip.duration || 10,
+            label: clip.name.replace(/\.[^/.]+$/, ''),
+            type: clip.type.startsWith('audio') ? 'audio' : 'video',
+        });
+    }, [timeline]);
+
+    const handleBinImport = useCallback((files) => {
+        clipBin.importFiles(files);
+    }, [clipBin]);
+
+    const handlePreviewClip = useCallback((clip) => {
+        setPreviewClip(clip);
+    }, []);
+
+    const handleInsertClip = useCallback(({ sourceStart, sourceEnd, duration: dur }) => {
+        if (!previewClip) return;
+        timeline.addClip(0, {
+            sourceUrl: previewClip.url,
+            duration: dur,
+            sourceStart,
+            sourceEnd,
+            label: previewClip.name.replace(/\.[^/.]+$/, ''),
+            type: 'video',
+        });
+        setPreviewClip(null);
+    }, [previewClip, timeline]);
+
+    const handleOverwriteClip = useCallback(({ sourceStart, sourceEnd, duration: dur }) => {
+        if (!previewClip) return;
+        timeline.addClip(0, {
+            sourceUrl: previewClip.url,
+            duration: dur,
+            sourceStart,
+            sourceEnd,
+            startTime: timeline.currentTime,
+            label: previewClip.name.replace(/\.[^/.]+$/, ''),
+            type: 'video',
+        });
+        setPreviewClip(null);
+    }, [previewClip, timeline]);
 
     const handleToolChange = useCallback((tool) => {
         setActiveTool(tool);
@@ -414,12 +464,13 @@ export const EditMode = () => {
 
                 <div className="edit-mode-canvas">
                     {timeline.clips.length === 0 ? (
-                        <div className="edit-drop-zone" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+                        <div className="edit-drop-zone" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
+                            onClick={() => fileInputRef.current?.click()}>
                             <div className="edit-drop-zone-inner">
                                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                                 <h3>Drop video files here</h3>
                                 <p>or click to browse</p>
-                                <button className="btn btn-primary" onClick={triggerUpload}>Upload Video</button>
+                                <button className="btn btn-primary" onClick={(e) => { e.stopPropagation(); triggerUpload(); }}>Upload Video</button>
                             </div>
                         </div>
                     ) : (
@@ -467,9 +518,18 @@ export const EditMode = () => {
 
             <div className="edit-mode-timeline">
                 <input ref={fileInputRef} type="file" accept="video/*,audio/*" multiple style={{ display: 'none' }} onChange={handleImportMedia} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', borderBottom: '1px solid var(--glass-border)' }}>
                     <button className="btn btn-primary" onClick={triggerUpload}>+ Import Media</button>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>or drag files anywhere on the page</span>
+                </div>
+                <div style={{ flex: '0 0 auto', maxHeight: '160px', overflow: 'hidden' }}>
+                    <ClipBin
+                        clips={clipBin.clips}
+                        onImport={handleBinImport}
+                        onRemove={clipBin.removeClip}
+                        onAddToTimeline={handleAddToTimeline}
+                        onPreview={handlePreviewClip}
+                    />
                 </div>
                 <Timeline
                     clips={timeline.clips}
@@ -517,6 +577,32 @@ export const EditMode = () => {
                 onStartVoice={ai.startListening}
                 onStopVoice={ai.stopListening}
             />
+
+            {previewClip && (
+                <ClipMonitor
+                    clip={previewClip}
+                    onInsert={handleInsertClip}
+                    onOverwrite={handleOverwriteClip}
+                    onClose={() => setPreviewClip(null)}
+                />
+            )}
+
+            <div style={{ position: 'fixed', bottom: '0.5rem', right: '0.5rem', zIndex: 50, display: 'flex', gap: '0.3rem' }}>
+                <button className="btn btn-outline" style={{ fontSize: '0.65rem', padding: '0.25rem 0.5rem' }}
+                    onClick={() => {
+                        const project = { clips: timeline.clips, tracks: timeline.tracks, savedAt: Date.now() };
+                        localStorage.setItem('screenstudio_project', JSON.stringify(project));
+                        alert('Project saved!');
+                    }}>Save</button>
+                <button className="btn btn-outline" style={{ fontSize: '0.65rem', padding: '0.25rem 0.5rem' }}
+                    onClick={() => {
+                        const saved = localStorage.getItem('screenstudio_project');
+                        if (!saved) return alert('No saved project found.');
+                        const project = JSON.parse(saved);
+                        project.clips.forEach(c => timeline.addClip(c.trackIndex, c));
+                        alert('Project loaded!');
+                    }}>Load</button>
+            </div>
         </div>
     );
 };

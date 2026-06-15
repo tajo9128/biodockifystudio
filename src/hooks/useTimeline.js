@@ -27,9 +27,11 @@ const MAX_UNDO = 50;
 export const useTimeline = () => {
     const [clips, setClips] = useState([]);
     const [tracks, setTracks] = useState([
-        { id: 'track_0', name: 'Screen', type: 'video', muted: false, locked: false, visible: true },
-        { id: 'track_1', name: 'Webcam', type: 'video', muted: false, locked: false, visible: true },
-        { id: 'track_2', name: 'Audio', type: 'audio', muted: false, locked: false, visible: true },
+        { id: 'track_0', name: 'Video 1', type: 'video', muted: false, locked: false, visible: true },
+        { id: 'track_1', name: 'Video 2', type: 'video', muted: false, locked: false, visible: true },
+        { id: 'track_2', name: 'Screen', type: 'video', muted: false, locked: false, visible: true },
+        { id: 'track_3', name: 'Webcam', type: 'video', muted: false, locked: false, visible: true },
+        { id: 'track_4', name: 'Audio', type: 'audio', muted: false, locked: false, visible: true },
     ]);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -408,7 +410,7 @@ export const useTimeline = () => {
 
                     // Apply transform filters (mirror, flip, rotate) before drawing
                     resolvedFilters.forEach(f => {
-                        if (['mirror', 'flip', 'rotate', 'crop'].includes(f.filterId)) {
+                        if (['mirror', 'flip', 'rotate'].includes(f.filterId)) {
                             const filterObj = FILTERS[f.filterId];
                             if (filterObj && filterObj.apply) {
                                 filterObj.apply(ctx, canvas, { ...getDefaultParams(f.filterId), ...f.params });
@@ -416,14 +418,44 @@ export const useTimeline = () => {
                         }
                     });
 
+                    // Handle crop via drawImage source rectangle
+                    const cropF = resolvedFilters.find(f => f.filterId === 'crop');
+                    const cropX = cropF?.params?.x || 0;
+                    const cropY = cropF?.params?.y || 0;
+                    const cropW = cropF?.params?.w || video.videoWidth;
+                    const cropH = cropF?.params?.h || video.videoHeight;
+
+                    // Seek BEFORE drawing (fixes 1-frame lag)
+                    if (Math.abs(video.currentTime - sourceTime) > 0.1) {
+                        video.currentTime = sourceTime;
+                    }
+
                     // Set CSS filter string for draw-time filters
                     const cssFilter = buildCSSFilter(resolvedFilters);
                     if (cssFilter && cssFilter !== 'none') {
                         ctx.filter = cssFilter;
                     }
 
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    if (cropF) {
+                        ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
+                    } else {
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    }
                     ctx.filter = 'none';
+
+                    // Apply image-data filters (canvas-only: opacity, pixelate, sharpen, etc.)
+                    resolvedFilters.forEach(f => {
+                        if (['opacity', 'pixelate', 'sharpen', 'curves', 'levels',
+                             'liftgammagain', 'posterize', 'cartoon', 'glow', 'emboss',
+                             'charcoal', 'chromakey', 'white-balance', 'color-grade'].includes(f.filterId)) {
+                            const filterObj = FILTERS[f.filterId];
+                            if (filterObj && filterObj.apply) {
+                                ctx.save();
+                                filterObj.apply(ctx, canvas, { ...getDefaultParams(f.filterId), ...f.params });
+                                ctx.restore();
+                            }
+                        }
+                    });
 
                     // Apply post-draw overlay filters
                     resolvedFilters.forEach(f => {
@@ -439,10 +471,6 @@ export const useTimeline = () => {
                     });
 
                     ctx.restore();
-
-                    if (Math.abs(video.currentTime - sourceTime) > 0.1) {
-                        video.currentTime = sourceTime;
-                    }
                 } else if (video) {
                     ctx.save();
                     ctx.fillStyle = clip.color || '#8b5cf6';

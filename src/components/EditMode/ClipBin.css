@@ -1,0 +1,144 @@
+.clip-bin {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.clip-bin-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--glass-border);
+    flex-shrink: 0;
+}
+
+.clip-bin-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+.clip-bin-import {
+    padding: 0.2rem 0.5rem;
+    border: 1px solid var(--primary);
+    border-radius: 6px;
+    background: rgba(139,92,246,0.08);
+    color: var(--primary);
+    font-size: 0.65rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+}
+
+.clip-bin-import:hover { background: var(--primary); color: white; }
+
+.clip-bin-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.clip-bin-empty {
+    padding: 1rem 0.5rem;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+}
+
+.clip-bin-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.4rem;
+    border-radius: 6px;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    cursor: grab;
+    transition: all 0.1s;
+}
+
+.clip-bin-item:hover { background: var(--glass-hover); border-color: rgba(255,255,255,0.15); }
+.clip-bin-item:active { cursor: grabbing; }
+
+.clip-bin-thumb {
+    width: 44px;
+    height: 28px;
+    border-radius: 4px;
+    background: #000;
+    overflow: hidden;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.clip-bin-thumb video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.4;
+}
+
+.clip-bin-dur {
+    position: absolute;
+    bottom: 1px;
+    right: 2px;
+    font-size: 0.5rem;
+    font-family: monospace;
+    color: white;
+    background: rgba(0,0,0,0.7);
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+.clip-bin-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.clip-bin-name {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.clip-bin-meta {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+}
+
+.clip-bin-actions {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.clip-bin-add, .clip-bin-remove {
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s;
+}
+
+.clip-bin-add:hover { background: var(--primary); color: white; border-color: var(--primary); }
+.clip-bin-remove:hover { background: var(--danger); color: white; border-color: var(--danger); }
