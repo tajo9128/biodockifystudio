@@ -461,3 +461,174 @@
 }
 
 .source-edit-row .source-edit-field { flex: 1; }
+
+/* ===== Countdown overlay ===== */
+.stream-countdown-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.95);
+    animation: countdown-in 0.3s ease;
+}
+@keyframes countdown-in { from { opacity: 0; } to { opacity: 1; } }
+
+.stream-countdown-number {
+    font-size: 12rem;
+    font-weight: 900;
+    color: var(--primary);
+    line-height: 1;
+    font-family: monospace;
+    animation: countdown-pop 1s infinite;
+}
+@keyframes countdown-pop { 0% { transform: scale(0.8); opacity: 0.5; } 50% { transform: scale(1.05); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+
+.stream-countdown-label {
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    margin-top: 1rem;
+    font-weight: 600;
+}
+
+/* ===== Virtual background section ===== */
+.stream-virtbg-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.stream-virtbg-mode {
+    padding: 0.35rem 0.6rem;
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    background: var(--glass);
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+.stream-virtbg-mode:focus { outline: none; border-color: var(--primary); }
+
+.stream-virtbg-info {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* ===== Recording presets ===== */
+.stream-rec-preset {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.stream-rec-preset select {
+    padding: 0.3rem 0.4rem;
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    background: var(--glass);
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+.stream-rec-preset select:focus { outline: none; border-color: var(--primary); }
+
+/* ===== Destinations list in right panel ===== */
+.stream-dest-list { display: flex; flex-direction: column; gap: 0.35rem; }
+
+.stream-dest-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 6px;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+}
+
+.stream-dest-item-icon {
+    width: 22px; height: 22px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.55rem;
+    font-weight: 800;
+    color: white;
+    flex-shrink: 0;
+}
+
+.stream-dest-item-name {
+    flex: 1;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-main);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stream-dest-item-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+}
+.stream-dest-item-dot.connected { background: #10b981; }
+.stream-dest-item-dot.connecting { background: #f59e0b; animation: rec-pulse 1.5s infinite; }
+.stream-dest-item-dot.failed { background: #ef4444; }
+.stream-dest-item-dot.pending { background: var(--text-muted); }
+
+.stream-dest-item-count {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+/* ===== Stream health dashboard ===== */
+.stream-health-bar {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 6px;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+}
+
+.stream-health-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.05rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.stream-health-value {
+    font-size: 0.7rem;
+    font-weight: 700;
+    font-family: monospace;
+    color: var(--text-main);
+}
+
+.stream-health-label {
+    font-size: 0.55rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.stream-health-indicator {
+    width: 100%;
+    height: 3px;
+    border-radius: 1.5px;
+    background: var(--text-muted);
+    overflow: hidden;
+    margin-top: 0.1rem;
+}
+
+.stream-health-fill { height: 100%; border-radius: 1.5px; }
+.stream-health-fill.good { background: #10b981; }
+.stream-health-fill.warn { background: #f59e0b; }
+.stream-health-fill.bad { background: #ef4444; }

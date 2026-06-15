@@ -37,6 +37,10 @@ export const StreamMode = () => {
     const [brandColor, setBrandColor] = useState('#8b5cf6');
     const [bannerText, setBannerText] = useState('');
     const [bannerVisible, setBannerVisible] = useState(false);
+    const [countdown, setCountdown] = useState(null);
+    const [recQuality, setRecQuality] = useState('1080p');
+    const [bgMode, setBgMode] = useState('none');
+    const [bgImage, setBgImage] = useState(null);
 
     const scenes = useScenes();
     const streams = useStreams(screenVideoRef, cameraVideoRef, () => {});
@@ -47,6 +51,8 @@ export const StreamMode = () => {
         cameraStream: streams?.cameraStream,
         canvasRef,
         useCanvas: true,
+        recordingQuality: recQuality,
+        bitrate: recQuality === '720p' ? 6000000 : recQuality === '1440p' ? 20000000 : 12000000,
     });
     const streaming = useStreaming();
     const replay = useReplayBuffer();
@@ -148,8 +154,30 @@ export const StreamMode = () => {
         e.target.value = '';
     }, []);
 
+    const handleBgUpload = useCallback((e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => setBgImage(reader.result);
+        reader.readAsDataURL(file);
+        e.target.value = '';
+    }, []);
+
+    const goLiveWithCountdown = useCallback((seconds = 5) => {
+        setCountdown(seconds);
+        const timer = setInterval(() => {
+            setCountdown(prev => {
+                if (prev <= 1) {
+                    clearInterval(timer);
+                    streaming.startStream(canvasRef.current, streams.audioStream);
+                    return null;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+    }, [streaming, streams.audioStream]);
+
     const fmtTime = (s) => `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
-    const platform = PLATFORM_INFO[streaming.platform] || PLATFORM_INFO.custom;
 
     // Drag-to-rearrange sources on canvas
     const dragRef = useRef(null);
@@ -199,6 +227,14 @@ export const StreamMode = () => {
 
     return (
         <div className="stream-mode">
+            {/* Countdown overlay */}
+            {countdown !== null && (
+                <div className="stream-countdown-overlay">
+                    <div className="stream-countdown-number">{countdown}</div>
+                    <div className="stream-countdown-label">Going Live...</div>
+                </div>
+            )}
+
             {/* === MAIN LAYOUT === */}
             <div className="stream-layout">
                 {/* === LEFT PANEL === */}
@@ -358,27 +394,58 @@ export const StreamMode = () => {
                 {/* === RIGHT PANEL === */}
                 <aside className="stream-right-panel">
                     <div className="stream-right-section">
-                        <div className="stream-section-label">Destination</div>
-                        <div className="stream-dest-card">
-                            <div className="stream-dest-icon" style={{ background: platform.color }}>{platform.icon}</div>
-                            <div className="stream-dest-info">
-                                <div className="stream-dest-name">{platform.name}</div>
-                                <div className="stream-dest-status">
-                                    {streaming.isStreaming ? (
-                                        <span className="stream-status-live">Connected</span>
-                                    ) : streaming.isConnecting ? (
-                                        <span className="stream-status-connecting">Connecting...</span>
-                                    ) : streaming.streamKey ? (
-                                        <span className="stream-status-ready">Ready</span>
-                                    ) : (
-                                        <span className="stream-status-offline">Not configured</span>
-                                    )}
-                                </div>
-                            </div>
+                        <div className="stream-section-label">Destinations ({streaming.destinations?.length || 0})</div>
+                        <div className="stream-dest-list">
+                            {streaming.destinations?.map((dest, i) => {
+                                const pInfo = PLATFORM_INFO[dest.platform] || PLATFORM_INFO.custom;
+                                const status = streaming.destStatuses?.[dest.platform];
+                                const dotClass = streaming.isStreaming
+                                    ? (status?.status === 'connected' ? 'connected' : status?.status === 'reconnecting' ? 'connecting' : 'failed')
+                                    : (dest.streamKey ? 'pending' : 'failed');
+                                return (
+                                    <div key={i} className="stream-dest-item" title={dest.label}>
+                                        <div className="stream-dest-item-icon" style={{ background: pInfo.color }}>{pInfo.icon}</div>
+                                        <span className="stream-dest-item-name">{dest.label || pInfo.name}</span>
+                                        <span className={`stream-dest-item-dot ${dotClass}`} />
+                                    </div>
+                                );
+                            })}
                         </div>
                         <button className="stream-dest-config" onClick={() => setShowStreamPanel(true)}>
-                            Configure Stream
+                            Configure
                         </button>
+                    </div>
+
+                    <div className="stream-right-section">
+                        <div className="stream-section-label">Recording</div>
+                        <div className="stream-rec-preset">
+                            <select value={recQuality} onChange={e => setRecQuality(e.target.value)}>
+                                <option value="720p">720p (HD)</option>
+                                <option value="1080p">1080p (FHD)</option>
+                                <option value="1440p">1440p (2K)</option>
+                                <option value="native">Native</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="stream-right-section">
+                        <div className="stream-section-label">Virtual BG</div>
+                        <div className="stream-virtbg-section">
+                            <select className="stream-virtbg-mode" value={bgMode} onChange={e => setBgMode(e.target.value)}>
+                                <option value="none">None</option>
+                                <option value="blur">Blur</option>
+                                <option value="image">Image</option>
+                                <option value="green">Green Screen</option>
+                            </select>
+                            {bgMode === 'image' && (
+                                <>
+                                    <input type="file" accept="image/*" id="bg-upload" style={{ display: 'none' }} onChange={handleBgUpload} />
+                                    <label htmlFor="bg-upload" className="stream-logo-drop" style={{ height: '40px', fontSize: '0.7rem', margin: 0 }}>+ Background Image</label>
+                                    {bgImage && <button className="stream-dest-remove" style={{ alignSelf: 'center' }} onClick={() => setBgImage(null)}>Remove BG</button>}
+                                </>
+                            )}
+                            <p className="stream-virtbg-info">{bgMode === 'blur' ? 'Blurs camera background' : bgMode === 'green' ? 'Replaces green screen' : bgMode === 'image' ? 'Replaces background with image' : 'No background effect'}</p>
+                        </div>
                     </div>
 
                     <div className="stream-right-section">
@@ -402,6 +469,26 @@ export const StreamMode = () => {
                             <button className="stream-replay-btn active" onClick={replay.saveReplay}>Save Replay</button>
                         )}
                     </div>
+
+                    {streaming.isStreaming && (
+                        <div className="stream-right-section">
+                            <div className="stream-section-label">Stream Health</div>
+                            <div className="stream-health-bar">
+                                <div className="stream-health-item">
+                                    <span className="stream-health-value">{streaming.streamStats?.bitrate || 0}</span>
+                                    <span className="stream-health-label">kbps</span>
+                                </div>
+                                <div className="stream-health-item">
+                                    <span className="stream-health-value">{streaming.resolution}</span>
+                                    <span className="stream-health-label">Res</span>
+                                </div>
+                                <div className="stream-health-item">
+                                    <span className="stream-health-value">30</span>
+                                    <span className="stream-health-label">FPS</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </aside>
             </div>
 
@@ -431,7 +518,7 @@ export const StreamMode = () => {
                     )}
 
                     {!streaming.isStreaming ? (
-                        <button className="stream-btn-live" onClick={() => setShowStreamPanel(true)}>
+                        <button className="stream-btn-live" onClick={() => goLiveWithCountdown(3)}>
                             Go Live
                         </button>
                     ) : (
@@ -459,12 +546,12 @@ export const StreamMode = () => {
                 isConnecting={streaming.isConnecting}
                 streamError={streaming.streamError}
                 streamStats={streaming.streamStats}
-                platform={streaming.platform}
-                selectPlatform={streaming.selectPlatform}
-                streamKey={streaming.streamKey}
-                setStreamKey={streaming.setStreamKey}
-                rtmpUrl={streaming.rtmpUrl}
-                setRtmpUrl={streaming.setRtmpUrl}
+                destinations={streaming.destinations}
+                destStatuses={streaming.destStatuses}
+                addDestination={streaming.addDestination}
+                removeDestination={streaming.removeDestination}
+                updateDestination={streaming.updateDestination}
+                setPlatform={streaming.setPlatform}
                 relayUrl={streaming.relayUrl}
                 setRelayUrl={streaming.setRelayUrl}
                 resolution={streaming.resolution}

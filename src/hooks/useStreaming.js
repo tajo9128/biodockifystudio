@@ -1,19 +1,20 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 
-// Streaming hook — sends canvas + audio to RTMP relay server via WebSocket
-// The relay server (server/rtmp-relay.js) forwards to YouTube Live / Twitch RTMP ingest
-
 export const useStreaming = () => {
     const [isStreaming, setIsStreaming] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
     const [streamError, setStreamError] = useState(null);
     const [streamStats, setStreamStats] = useState({ bitrate: 0, fps: 0, droppedFrames: 0, uptime: 0, bytesSent: 0 });
-    const [platform, setPlatform] = useState('youtube'); // youtube, twitch, custom
-    const [streamKey, setStreamKeyState] = useState(() => localStorage.getItem('stream_key') || '');
-    const [rtmpUrl, setRtmpUrlState] = useState(() => localStorage.getItem('stream_rtmp_url') || 'rtmp://a.rtmp.youtube.com/live2');
+    const [destinations, setDestinations] = useState(() => {
+        try {
+            const saved = localStorage.getItem('stream_destinations');
+            return saved ? JSON.parse(saved) : [{ platform: 'youtube', streamKey: '', rtmpUrl: '', label: 'YouTube' }];
+        } catch { return [{ platform: 'youtube', streamKey: '', rtmpUrl: '', label: 'YouTube' }]; }
+    });
+    const [destStatuses, setDestStatuses] = useState({});
     const [relayUrl, setRelayUrlState] = useState(() => localStorage.getItem('stream_relay_url') || 'ws://localhost:8080');
     const [resolution, setResolution] = useState('1080p');
-    const [bitrate, setBitrate] = useState(6000); // kbps
+    const [bitrate, setBitrate] = useState(6000);
 
     const wsRef = useRef(null);
     const recorderRef = useRef(null);
@@ -24,27 +25,54 @@ export const useStreaming = () => {
 
     useEffect(() => { isStreamingRef.current = isStreaming; }, [isStreaming]);
 
-    const setStreamKey = useCallback((key) => {
-        setStreamKeyState(key);
-        localStorage.setItem('stream_key', key);
+    const persistDestinations = useCallback((dests) => {
+        localStorage.setItem('stream_destinations', JSON.stringify(dests));
+        setDestinations(dests);
     }, []);
 
-    const setRtmpUrl = useCallback((url) => {
-        setRtmpUrlState(url);
-        localStorage.setItem('stream_rtmp_url', url);
-    }, []);
+    const addDestination = useCallback((platform = 'custom') => {
+        const defaults = {
+            youtube: { rtmpUrl: 'rtmp://a.rtmp.youtube.com/live2', label: 'YouTube' },
+            twitch: { rtmpUrl: 'rtmp://live.twitch.tv/app', label: 'Twitch' },
+            custom: { rtmpUrl: '', label: 'Custom RTMP' },
+        };
+        const d = defaults[platform] || defaults.custom;
+        setDestinations(prev => {
+            const next = [...prev, { platform, streamKey: '', rtmpUrl: d.rtmpUrl, label: d.label }];
+            persistDestinations(next);
+            return next;
+        });
+    }, [persistDestinations]);
+
+    const removeDestination = useCallback((index) => {
+        setDestinations(prev => {
+            const next = prev.filter((_, i) => i !== index);
+            persistDestinations(next);
+            return next;
+        });
+    }, [persistDestinations]);
+
+    const updateDestination = useCallback((index, updates) => {
+        setDestinations(prev => {
+            const next = prev.map((d, i) => i === index ? { ...d, ...updates } : d);
+            persistDestinations(next);
+            return next;
+        });
+    }, [persistDestinations]);
+
+    const setPlatform = useCallback((index, platform) => {
+        const defaults = {
+            youtube: { rtmpUrl: 'rtmp://a.rtmp.youtube.com/live2', label: 'YouTube' },
+            twitch: { rtmpUrl: 'rtmp://live.twitch.tv/app', label: 'Twitch' },
+            custom: { rtmpUrl: '', label: 'Custom RTMP' },
+        };
+        updateDestination(index, { platform, ...defaults[platform] || defaults.custom });
+    }, [updateDestination]);
 
     const setRelayUrl = useCallback((url) => {
         setRelayUrlState(url);
         localStorage.setItem('stream_relay_url', url);
     }, []);
-
-    // Auto-set RTMP URL based on platform
-    const selectPlatform = useCallback((p) => {
-        setPlatform(p);
-        if (p === 'youtube') setRtmpUrl('rtmp://a.rtmp.youtube.com/live2');
-        else if (p === 'twitch') setRtmpUrl('rtmp://live.twitch.tv/app');
-    }, [setRtmpUrl]);
 
     const stopStream = useCallback(() => {
         if (recorderRef.current && recorderRef.current.state !== 'inactive') {
@@ -62,13 +90,15 @@ export const useStreaming = () => {
         recorderRef.current = null;
         setIsStreaming(false);
         setIsConnecting(false);
+        setDestStatuses({});
         setStreamStats({ bitrate: 0, fps: 0, droppedFrames: 0, uptime: 0, bytesSent: 0 });
     }, []);
 
     const startStream = useCallback(async (canvas, audioStream) => {
         if (isStreaming) return;
-        if (!streamKey) {
-            setStreamError('Stream key is required. Go to YouTube Studio > Stream to get your key.');
+        const validDests = destinations.filter(d => d.streamKey && d.rtmpUrl);
+        if (validDests.length === 0) {
+            setStreamError('At least one destination with a stream key is required.');
             return;
         }
 
@@ -76,33 +106,32 @@ export const useStreaming = () => {
         setStreamError(null);
 
         try {
-            // Connect to RTMP relay server via WebSocket
             const ws = new WebSocket(relayUrl);
             ws.binaryType = 'arraybuffer';
 
             ws.onopen = () => {
-                // Send config
-                const cleanRtmp = rtmpUrl.endsWith('/') ? rtmpUrl.slice(0, -1) : rtmpUrl;
+                // Build destinations for relay
+                const relayDests = validDests.map(d => ({
+                    platform: d.platform,
+                    rtmpUrl: `${d.rtmpUrl.endsWith('/') ? d.rtmpUrl.slice(0, -1) : d.rtmpUrl}/${d.streamKey}`,
+                    label: d.label,
+                }));
+
                 ws.send(JSON.stringify({
                     type: 'config',
-                    rtmpUrl: `${cleanRtmp}/${streamKey}`,
+                    destinations: relayDests,
                     resolution,
                     bitrate: bitrate * 1000,
                     framerate: 30,
                     audioBitrate: 128000,
                 }));
 
-                // Start MediaRecorder on canvas
                 const canvasStream = canvas.captureStream(30);
 
-                // Add audio tracks if available
                 if (audioStream) {
-                    audioStream.getAudioTracks().forEach(track => {
-                        canvasStream.addTrack(track);
-                    });
+                    audioStream.getAudioTracks().forEach(track => canvasStream.addTrack(track));
                 }
 
-                // Select supported mimeType with fallbacks
                 const mimeTypes = [
                     'video/webm;codecs=vp8,opus',
                     'video/webm;codecs=vp9,opus',
@@ -131,7 +160,7 @@ export const useStreaming = () => {
                     stopStream();
                 };
 
-                recorder.start(1000); // 1-second chunks
+                recorder.start(1000);
                 recorderRef.current = recorder;
                 wsRef.current = ws;
                 startTimeRef.current = Date.now();
@@ -139,7 +168,6 @@ export const useStreaming = () => {
                 setIsStreaming(true);
                 setIsConnecting(false);
 
-                // Stats update interval
                 statsIntervalRef.current = setInterval(() => {
                     const elapsed = (Date.now() - startTimeRef.current) / 1000;
                     setStreamStats({
@@ -152,36 +180,41 @@ export const useStreaming = () => {
                 }, 2000);
             };
 
+            ws.onmessage = (e) => {
+                try {
+                    const msg = JSON.parse(e.data);
+                    if (msg.type === 'dest_status') {
+                        setDestStatuses(prev => ({ ...prev, [msg.platform]: msg }));
+                    }
+                    if (msg.type === 'started') {
+                        setDestStatuses({});
+                    }
+                } catch { /* ignore non-JSON messages */ }
+            };
+
             ws.onerror = () => {
                 setStreamError(`Cannot connect to relay server at ${relayUrl}. Make sure rtmp-relay is running.`);
                 setIsConnecting(false);
             };
 
             ws.onclose = () => {
-                if (isStreamingRef.current) {
-                    stopStream();
-                }
+                if (isStreamingRef.current) stopStream();
             };
 
         } catch (err) {
             setStreamError(err.message);
             setIsConnecting(false);
         }
-    }, [isStreaming, streamKey, rtmpUrl, relayUrl, resolution, bitrate, stopStream]);
+    }, [isStreaming, destinations, relayUrl, resolution, bitrate, stopStream]);
 
-    // Check relay server availability
     const checkRelay = useCallback(async () => {
         try {
-            // Try HTTP health check on relay
             const httpUrl = relayUrl.replace('ws://', 'http://').replace('wss://', 'https://');
             const res = await fetch(`${httpUrl}/health`, { signal: AbortSignal.timeout(3000) });
             return res.ok;
-        } catch {
-            return false;
-        }
+        } catch { return false; }
     }, [relayUrl]);
 
-    // Cleanup on unmount
     useEffect(() => {
         return () => {
             if (recorderRef.current?.state !== 'inactive') recorderRef.current?.stop();
@@ -192,9 +225,8 @@ export const useStreaming = () => {
 
     return {
         isStreaming, isConnecting, streamError, streamStats,
-        platform, selectPlatform,
-        streamKey, setStreamKey,
-        rtmpUrl, setRtmpUrl,
+        destinations, destStatuses,
+        addDestination, removeDestination, updateDestination, setPlatform,
         relayUrl, setRelayUrl,
         resolution, setResolution,
         bitrate, setBitrate,
