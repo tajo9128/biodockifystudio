@@ -88,9 +88,10 @@ export const EditMode = () => {
 
     // Import media file into timeline
     const fileInputRef = useRef(null);
-    const handleImportMedia = useCallback((e) => {
-        const files = Array.from(e.target.files);
-        files.forEach(file => {
+    const [isDragOver, setIsDragOver] = useState(false);
+
+    const importFiles = useCallback((files) => {
+        Array.from(files).forEach(file => {
             const url = URL.createObjectURL(file);
             const video = document.createElement('video');
             video.preload = 'metadata';
@@ -106,8 +107,37 @@ export const EditMode = () => {
             };
             video.src = url;
         });
-        e.target.value = '';
     }, [timeline]);
+
+    const handleImportMedia = useCallback((e) => {
+        importFiles(e.target.files);
+        e.target.value = '';
+    }, [importFiles]);
+
+    const handleDragOver = useCallback((e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(true);
+    }, []);
+
+    const handleDragLeave = useCallback((e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(false);
+    }, []);
+
+    const handleDrop = useCallback((e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(false);
+        if (e.dataTransfer.files.length > 0) {
+            importFiles(e.dataTransfer.files);
+        }
+    }, [importFiles]);
+
+    const triggerUpload = useCallback(() => {
+        fileInputRef.current?.click();
+    }, []);
 
     const handleToolChange = useCallback((tool) => {
         setActiveTool(tool);
@@ -376,36 +406,49 @@ export const EditMode = () => {
     }, [timeline.currentTime, timeline.isPlaying, timeline.clips.length, timeline.renderFrame]);
 
     return (
-        <div className="edit-mode">
+        <div className="edit-mode" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+            {isDragOver && <div className="edit-drop-overlay"><span>Drop files here</span></div>}
+
             <div className="edit-mode-main">
-                <ToolSidebar activeTool={activeTool} onToolChange={handleToolChange} />
+                <ToolSidebar activeTool={activeTool} onToolChange={handleToolChange} onUpload={triggerUpload} />
 
                 <div className="edit-mode-canvas">
-                    <PreviewStage
-                        canvasRef={canvasRef}
-                        screenVideoRef={screenVideoRef}
-                        cameraVideoRef={cameraVideoRef}
-                        screenStream={streams.screenStream}
-                        cameraStream={streams.cameraStream}
-                        activeBg={activeBg}
-                        webcamShape={webcamShape}
-                        webcamScale={webcamScale}
-                        screenScale={screenScale}
-                        isRecording={recording.isRecording}
-                        isPaused={recording.isPaused}
-                        webcamOnly={false}
-                        cursorFxEnabled={cursorFxEnabled}
-                        drawCursorFx={drawCursorFx}
-                        annotationEnabled={annotationEnabled}
-                        annotationHandlers={annotationEnabled ? {
-                            onMouseDown: annotation.handleMouseDown,
-                            onMouseMove: annotation.handleMouseMove,
-                            onMouseUp: annotation.handleMouseUp,
-                        } : null}
-                        zoomEnabled={zoomEnabled}
-                        applyZoom={applyZoom}
-                        restoreZoom={restoreZoom}
-                    />
+                    {timeline.clips.length === 0 ? (
+                        <div className="edit-drop-zone" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+                            <div className="edit-drop-zone-inner">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                <h3>Drop video files here</h3>
+                                <p>or click to browse</p>
+                                <button className="btn btn-primary" onClick={triggerUpload}>Upload Video</button>
+                            </div>
+                        </div>
+                    ) : (
+                        <PreviewStage
+                            canvasRef={canvasRef}
+                            screenVideoRef={screenVideoRef}
+                            cameraVideoRef={cameraVideoRef}
+                            screenStream={streams.screenStream}
+                            cameraStream={streams.cameraStream}
+                            activeBg={activeBg}
+                            webcamShape={webcamShape}
+                            webcamScale={webcamScale}
+                            screenScale={screenScale}
+                            isRecording={recording.isRecording}
+                            isPaused={recording.isPaused}
+                            webcamOnly={false}
+                            cursorFxEnabled={cursorFxEnabled}
+                            drawCursorFx={drawCursorFx}
+                            annotationEnabled={annotationEnabled}
+                            annotationHandlers={annotationEnabled ? {
+                                onMouseDown: annotation.handleMouseDown,
+                                onMouseMove: annotation.handleMouseMove,
+                                onMouseUp: annotation.handleMouseUp,
+                            } : null}
+                            zoomEnabled={zoomEnabled}
+                            applyZoom={applyZoom}
+                            restoreZoom={restoreZoom}
+                        />
+                    )}
                 </div>
 
                 <RightPanel
@@ -423,9 +466,10 @@ export const EditMode = () => {
             </div>
 
             <div className="edit-mode-timeline">
+                <input ref={fileInputRef} type="file" accept="video/*,audio/*" multiple style={{ display: 'none' }} onChange={handleImportMedia} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem' }}>
-                    <input ref={fileInputRef} type="file" accept="video/*,audio/*" multiple style={{ display: 'none' }} onChange={handleImportMedia} />
-                    <button className="btn btn-outline" onClick={() => fileInputRef.current?.click()}>Import Media</button>
+                    <button className="btn btn-primary" onClick={triggerUpload}>+ Import Media</button>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>or drag files anywhere on the page</span>
                 </div>
                 <Timeline
                     clips={timeline.clips}

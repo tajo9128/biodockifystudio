@@ -55,3 +55,15 @@
 .tool-sidebar-label {
     font-weight: 600;
 }
+
+.tool-sidebar-btn[title="Upload"] {
+    margin-bottom: 0.5rem;
+    border-color: var(--primary);
+    color: var(--primary);
+    background: rgba(139,92,246,0.08);
+}
+
+.tool-sidebar-btn[title="Upload"]:hover {
+    background: var(--primary);
+    color: white;
+}
