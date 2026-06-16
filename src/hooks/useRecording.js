@@ -1,10 +1,10 @@
 import { useState, useRef, useCallback } from 'react';
-// storageManager used indirectly via file system operations
 
 export const useRecording = ({
     screenStream,
     audioStream,
     cameraStream,
+    systemAudioStream: _systemAudioStream,
     activeBg = 'none',
     screenScale = 1.0,
     canvasRef,
@@ -12,25 +12,84 @@ export const useRecording = ({
     bitrate = 8000000,
     mimeType: preferredMimeType,
     useCanvas: useCanvasProp,
+    multiTrack = false,
+    canvasElement,
     onComplete
 } = {}) => {
     const [isRecording, setIsRecording] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
     const [status, setStatus] = useState('idle');
-    const mediaRecorderRef = useRef(null);
-    const chunksRef = useRef([]);
+    const [multiTrackMode, setMultiTrackMode] = useState(false);
+    const videoRecorderRef = useRef(null);
+    const audioRecorderRef = useRef(null);
+    const videoChunksRef = useRef([]);
+    const audioChunksRef = useRef([]);
     const isStartingRef = useRef(false);
+    const recordStartRef = useRef(0);
+    const cursorDataRef = useRef([]);
+    const cursorCaptureRef = useRef(null);
 
+    const pickMimeType = (hasAudio) => {
+        if (preferredMimeType && MediaRecorder.isTypeSupported(preferredMimeType)) return preferredMimeType;
+        const fallbacks = [
+            'video/webm;codecs=vp9,opus',
+            'video/webm;codecs=vp8,opus',
+            'video/webm;codecs=h264,opus',
+            'video/webm',
+            'video/mp4'
+        ];
+        let mt = fallbacks.find(t => MediaRecorder.isTypeSupported(t)) || '';
+        if (!hasAudio && mt.includes('opus')) mt = mt.replace(',opus', '');
+        return mt;
+    };
+
+    const startCursorCapture = useCallback(() => {
+        const el = canvasElement?.current || canvasRef?.current;
+        if (!el) return;
+        recordStartRef.current = Date.now();
+        cursorDataRef.current = [];
+
+        const onMouseMove = (e) => {
+            const rect = el.getBoundingClientRect();
+            cursorDataRef.current.push({
+                t: (Date.now() - recordStartRef.current) / 1000,
+                x: (e.clientX - rect.left) / rect.width,
+                y: (e.clientY - rect.top) / rect.height,
+                click: false,
+            });
+            // Cap at 1800 entries (~60s at 30fps mouse movement)
+            if (cursorDataRef.current.length > 50000) cursorDataRef.current.shift();
+        };
+        const onMouseDown = (e) => {
+            const rect = el.getBoundingClientRect();
+            cursorDataRef.current.push({
+                t: (Date.now() - recordStartRef.current) / 1000,
+                x: (e.clientX - rect.left) / rect.width,
+                y: (e.clientY - rect.top) / rect.height,
+                click: true,
+            });
+        };
+        el.addEventListener('mousemove', onMouseMove);
+        el.addEventListener('mousedown', onMouseDown);
+        cursorCaptureRef.current = { onMouseMove, onMouseDown, el };
+    }, [canvasRef, canvasElement]);
+
+    const stopCursorCapture = useCallback(() => {
+        const cap = cursorCaptureRef.current;
+        if (cap?.el) {
+            cap.el.removeEventListener('mousemove', cap.onMouseMove);
+            cap.el.removeEventListener('mousedown', cap.onMouseDown);
+        }
+        cursorCaptureRef.current = null;
+        return cursorDataRef.current;
+    }, []);
 
     const startRecording = useCallback(async () => {
         if (isStartingRef.current) return;
         isStartingRef.current = true;
 
         try {
-            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-                return;
-            }
-
+            if (videoRecorderRef.current && videoRecorderRef.current.state !== 'inactive') return;
             if (!screenStream && !cameraStream) {
                 setStatus('error');
                 isStartingRef.current = false;
@@ -38,99 +97,112 @@ export const useRecording = ({
             }
 
             setStatus('initializing');
-
-            const tracks = [];
+            setMultiTrackMode(multiTrack);
 
             const useCanvas = useCanvasProp ?? (cameraStream || activeBg !== 'none' || (screenScale && screenScale < 1.0) || recordingQuality !== 'native');
 
+            // --- VIDEO TRACKS ---
+            const videoTracks = [];
             if (useCanvas) {
                 if (!canvasRef.current) throw new Error('Canvas not found');
                 const canvasStream = canvasRef.current.captureStream(30);
-                tracks.push(...canvasStream.getVideoTracks());
-            }
-            // Case B: Screen only (Direct mode for better performance)
-            else if (screenStream) {
-                tracks.push(...screenStream.getVideoTracks());
+                videoTracks.push(...canvasStream.getVideoTracks());
+            } else if (screenStream) {
+                videoTracks.push(...screenStream.getVideoTracks());
             }
 
-            // Add Audio track if available
-            if (audioStream) {
-                const audioTrack = audioStream.getAudioTracks()[0];
-                if (audioTrack) {
-                    tracks.push(audioTrack);
-                }
-            }
+            const videoMimeType = pickMimeType(false);
+            const hasAudio = !!audioStream;
 
-            if (tracks.length === 0) throw new Error('No tracks available for recording');
+            if (multiTrack && hasAudio) {
+                // === MULTI-TRACK MODE: separate video + audio recorders ===
+                
+                // Video recorder (no audio)
+                const videoStream = new MediaStream(videoTracks);
+                const vRecorder = new MediaRecorder(videoStream, {
+                    mimeType: videoMimeType.replace(/,?opus/, '').replace(/,?aac/, '') || 'video/webm',
+                    videoBitsPerSecond: bitrate,
+                });
+                videoChunksRef.current = [];
+                vRecorder.ondataavailable = (e) => { if (e.data?.size > 0) videoChunksRef.current.push(e.data); };
+                vRecorder.onerror = () => { setIsRecording(false); setStatus('error'); };
+                vRecorder.onstop = () => {
+                    const videoBlob = new Blob(videoChunksRef.current, { type: videoMimeType });
+                    const cursorData = stopCursorCapture();
 
-            const recordingStream = new MediaStream(tracks);
+                    // If audio recorder already stopped, call onComplete
+                    if (!audioRecorderRef.current || audioRecorderRef.current.state === 'inactive') {
+                        const audioBlob = audioChunksRef.current.length > 0
+                            ? new Blob(audioChunksRef.current, { type: 'audio/webm' })
+                            : null;
+                        if (onComplete) onComplete(videoBlob, videoMimeType, { audioBlob, cursorData, multiTrack: true });
+                        setStatus('ready');
+                    }
+                };
+                videoRecorderRef.current = vRecorder;
 
-            // Select MIME type: preference first, then fallback to WebM
-            let finalMimeType = '';
-            const hasAudio = tracks.some(t => t.kind === 'audio');
+                // Audio recorder (mic only)
+                const audioMimeType = 'audio/webm;codecs=opus';
+                const supportedAudioMime = MediaRecorder.isTypeSupported(audioMimeType) ? audioMimeType : 'audio/webm';
+                const aRecorder = new MediaRecorder(audioStream, {
+                    mimeType: supportedAudioMime,
+                    audioBitsPerSecond: 128000,
+                });
+                audioChunksRef.current = [];
+                aRecorder.ondataavailable = (e) => { if (e.data?.size > 0) audioChunksRef.current.push(e.data); };
+                aRecorder.onerror = () => { console.warn('Audio recorder error'); };
+                aRecorder.onstop = () => {
+                    // Check if video also stopped
+                    if (!videoRecorderRef.current || videoRecorderRef.current.state === 'inactive') {
+                        const videoBlob = videoChunksRef.current.length > 0
+                            ? new Blob(videoChunksRef.current, { type: videoMimeType })
+                            : null;
+                        const audioBlob = audioChunksRef.current.length > 0
+                            ? new Blob(audioChunksRef.current, { type: supportedAudioMime })
+                            : null;
+                        const cursorData = stopCursorCapture();
+                        if (onComplete) onComplete(videoBlob, videoMimeType, { audioBlob, cursorData, multiTrack: true });
+                        setStatus('ready');
+                    }
+                };
+                audioRecorderRef.current = aRecorder;
 
-            if (preferredMimeType && MediaRecorder.isTypeSupported(preferredMimeType)) {
-                finalMimeType = preferredMimeType;
+                startCursorCapture();
+                vRecorder.start(1000);
+                aRecorder.start(1000);
+
             } else {
-                const fallbacks = [
-                    'video/webm;codecs=vp9,opus',
-                    'video/webm;codecs=vp8,opus',
-                    'video/webm;codecs=h264,opus',
-                    'video/webm',
-                    'video/mp4'
-                ];
-                finalMimeType = fallbacks.find(t => MediaRecorder.isTypeSupported(t)) || '';
+                // === SINGLE-TRACK MODE: combined video+audio ===
+                const tracks = [...videoTracks];
+                if (audioStream) {
+                    const at = audioStream.getAudioTracks()[0];
+                    if (at) tracks.push(at);
+                }
+                if (tracks.length === 0) throw new Error('No tracks available');
+
+                const combinedMime = pickMimeType(hasAudio);
+                const recordingStream = new MediaStream(tracks);
+                const recorder = new MediaRecorder(recordingStream, {
+                    mimeType: combinedMime,
+                    videoBitsPerSecond: bitrate,
+                    audioBitsPerSecond: hasAudio ? 128000 : 0,
+                });
+                videoChunksRef.current = [];
+                recorder.ondataavailable = (e) => { if (e.data?.size > 0) videoChunksRef.current.push(e.data); };
+                recorder.onerror = () => { setIsRecording(false); setIsPaused(false); setStatus('error'); };
+                recorder.onstop = () => {
+                    const blob = new Blob(videoChunksRef.current, { type: combinedMime });
+                    const cursorData = stopCursorCapture();
+                    if (onComplete) onComplete(blob, combinedMime, { cursorData, multiTrack: false });
+                    videoChunksRef.current = [];
+                    setStatus('ready');
+                };
+                videoRecorderRef.current = recorder;
+
+                startCursorCapture();
+                recorder.start(1000);
             }
 
-            // [FIX] If no audio tracks, strip audio codecs to prevent silent failure on some browsers
-            if (!hasAudio && finalMimeType.includes('opus')) {
-                finalMimeType = finalMimeType.replace(',opus', '');
-            } else if (!hasAudio && finalMimeType.includes('aac')) {
-                finalMimeType = finalMimeType.replace(',aac', '');
-            }
-
-            const mediaRecorder = new MediaRecorder(recordingStream, {
-                mimeType: finalMimeType,
-                videoBitsPerSecond: bitrate,
-                audioBitsPerSecond: hasAudio ? 128000 : 0
-            });
-            mediaRecorderRef.current = mediaRecorder;
-
-            chunksRef.current = [];
-
-            mediaRecorder.ondataavailable = (e) => {
-                if (e.data && e.data.size > 0) {
-                    chunksRef.current.push(e.data);
-                }
-            };
-
-            mediaRecorder.onerror = (e) => {
-                console.error('MediaRecorder error:', e.error);
-                setIsRecording(false);
-                setIsPaused(false);
-                setStatus('error');
-            };
-
-            mediaRecorder.onstop = async () => {
-                setStatus('processing');
-                const chunks = chunksRef.current;
-
-                if (chunks.length > 0) {
-                    const blob = new Blob(chunks, { type: finalMimeType });
-                    if (onComplete) {
-                        onComplete(blob, finalMimeType);
-                    }
-                } else {
-                    if (onComplete) {
-                        onComplete(null, null); // Notify with null to signal empty recording
-                    }
-                }
-
-                chunksRef.current = [];
-                setStatus('ready');
-            };
-
-            mediaRecorder.start(1000); // 1s slice is more standard/stable
             setIsRecording(true);
             setStatus('recording');
         } catch {
@@ -138,37 +210,32 @@ export const useRecording = ({
         } finally {
             isStartingRef.current = false;
         }
-    }, [screenStream, cameraStream, audioStream, activeBg, screenScale, canvasRef, recordingQuality, bitrate, preferredMimeType, useCanvasProp, onComplete]);
+    }, [screenStream, cameraStream, audioStream, activeBg, screenScale, canvasRef, recordingQuality, bitrate, preferredMimeType, useCanvasProp, multiTrack, onComplete, startCursorCapture, stopCursorCapture]);
 
     const pauseRecording = useCallback(() => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-            mediaRecorderRef.current.pause();
-            setIsPaused(true);
-            setStatus('paused');
-        }
+        if (videoRecorderRef.current?.state === 'recording') videoRecorderRef.current.pause();
+        if (audioRecorderRef.current?.state === 'recording') audioRecorderRef.current.pause();
+        setIsPaused(true);
+        setStatus('paused');
     }, []);
 
     const resumeRecording = useCallback(() => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
-            mediaRecorderRef.current.resume();
-            setIsPaused(false);
-            setStatus('recording');
-        }
+        if (videoRecorderRef.current?.state === 'paused') videoRecorderRef.current.resume();
+        if (audioRecorderRef.current?.state === 'paused') audioRecorderRef.current.resume();
+        setIsPaused(false);
+        setStatus('recording');
     }, []);
 
     const stopRecording = useCallback(() => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-            mediaRecorderRef.current.stop();
-        }
+        if (videoRecorderRef.current && videoRecorderRef.current.state !== 'inactive') videoRecorderRef.current.stop();
+        if (audioRecorderRef.current && audioRecorderRef.current.state !== 'inactive') audioRecorderRef.current.stop();
         setIsRecording(false);
         setIsPaused(false);
-        setStatus('ready');
     }, []);
 
     const resetRecording = useCallback(() => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-            mediaRecorderRef.current.stop();
-        }
+        if (videoRecorderRef.current && videoRecorderRef.current.state !== 'inactive') videoRecorderRef.current.stop();
+        if (audioRecorderRef.current && audioRecorderRef.current.state !== 'inactive') audioRecorderRef.current.stop();
         setIsRecording(false);
         setIsPaused(false);
         setStatus('idle');
@@ -179,11 +246,12 @@ export const useRecording = ({
         isPaused,
         status,
         setStatus,
+        multiTrackMode,
         startRecording,
         pauseRecording,
         resumeRecording,
         stopRecording,
         resetRecording,
-        mediaRecorderRef
+        mediaRecorderRef: videoRecorderRef,
     };
 };
