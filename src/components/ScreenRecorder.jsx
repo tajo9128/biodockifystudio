@@ -112,8 +112,36 @@ const ScreenRecorder = () => {
             return;
         }
         recordingStore.set(blob, mimeType);
+
+        if (quickRecordRef.current) {
+            // Auto-save to folder without showing modal
+            quickRecordRef.current = false;
+            const ext = mimeType?.includes('mp4') ? '.mp4' : '.webm';
+            const name = `recording-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)}${ext}`;
+            const blobUrl = URL.createObjectURL(blob);
+            if (directoryHandle) {
+                directoryHandle.getFileHandle(name, { create: true }).then(fileHandle =>
+                    fileHandle.createWritable().then(writable =>
+                        writable.write(blob).then(() => writable.close())
+                    )
+                ).then(() => {
+                    showToast('Saved', `Saved to ${directoryHandle.name}/${name}`, 'success');
+                    syncLibrary(directoryHandle);
+                }).catch(() => {
+                    const a = document.createElement('a');
+                    a.href = blobUrl; a.download = name; a.click();
+                    showToast('Download Saved', 'Saved via browser download', 'success');
+                });
+            } else {
+                const a = document.createElement('a');
+                a.href = blobUrl; a.download = name; a.click();
+                showToast('Download Saved', 'Check your downloads folder', 'success');
+            }
+            return;
+        }
+
         setPendingRecording({ blob, mimeType });
-    }, [showToast]);
+    }, [showToast, directoryHandle, syncLibrary]);
 
     const {
         isRecording, isPaused, status: recordingStatus, startRecording: startMediaRecording, pauseRecording, resumeRecording, stopRecording, resetRecording
@@ -235,6 +263,18 @@ Rules:
     const dragOffset = useRef({ x: 0, y: 0 });
     const countdownTimerRef = useRef(null);
     const elapsedTimerRef = useRef(null);
+    const quickRecordRef = useRef(false);
+
+    const handleRecordScreen = useCallback(async () => {
+        // If screen not active, enable it first
+        if (!screenStream) {
+            await toggleScreen();
+        }
+        // Start recording immediately without countdown, auto-save on stop
+        quickRecordRef.current = true;
+        // Short delay to let the canvas render the first frame
+        setTimeout(() => startMediaRecording(), 300);
+    }, [screenStream, toggleScreen, startMediaRecording]);
 
     const handleStopAll = useCallback(() => {
         if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
@@ -459,7 +499,7 @@ Rules:
                 currentDimensions={currentDimensions} handleMouseDown={handleMouseDown} handleMouseMove={handleMouseMove}
                 handleMouseUp={handleMouseUp} elapsedTime={formatTime(elapsedTime)}
                 webcamOnly={webcamOnly} annotationEnabled={annotationEnabled} zoomEnabled={zoomEnabled} cursorFxEnabled={cursorFxEnabled}
-                onEnableScreen={toggleScreen} onEnableCamera={toggleCamera} />
+                onEnableScreen={handleRecordScreen} onEnableCamera={toggleCamera} />
 
             {annotationEnabled && (
                 <AnnotationToolbar tool={annotation.tool} setTool={annotation.setTool} color={annotation.color}
