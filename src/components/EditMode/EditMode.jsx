@@ -417,6 +417,14 @@ export const EditMode = () => {
     const previewRafRef = useRef(null);
     const currentTimeRef = useRef(timeline.currentTime);
 
+    // Set canvas drawing buffer size
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas || timeline.clips.length === 0) return;
+        if (canvas.width !== 1920) canvas.width = 1920;
+        if (canvas.height !== 1080) canvas.height = 1080;
+    }, [timeline.clips.length]);
+
     // Keep ref in sync with state so rAF loop reads latest time
     useEffect(() => { currentTimeRef.current = timeline.currentTime; }, [timeline.currentTime]);
 
@@ -474,6 +482,7 @@ export const EditMode = () => {
                             </div>
                         </div>
                     ) : (
+                        <>
                         <PreviewStage
                             canvasRef={canvasRef}
                             screenVideoRef={screenVideoRef}
@@ -498,7 +507,23 @@ export const EditMode = () => {
                             zoomEnabled={zoomEnabled}
                             applyZoom={applyZoom}
                             restoreZoom={restoreZoom}
+                            editMode={true}
                         />
+                        {/* Transport bar below preview */}
+                        <div className="edit-transport-bar">
+                            <button className="edit-transport-btn" onClick={timeline.stop} title="Stop">⏮</button>
+                            <button className="edit-transport-btn edit-transport-play" onClick={timeline.isPlaying ? timeline.pause : timeline.play}>
+                                {timeline.isPlaying ? '⏸' : '▶'}
+                            </button>
+                            <span className="edit-transport-time">
+                                {Math.floor(timeline.currentTime / 60)}:{String(Math.floor(timeline.currentTime % 60)).padStart(2, '0')}
+                            </span>
+                            <span className="edit-transport-sep">/</span>
+                            <span className="edit-transport-duration">
+                                {Math.floor(timeline.duration / 60)}:{String(Math.floor(timeline.duration % 60)).padStart(2, '0')}
+                            </span>
+                        </div>
+                        </>
                     )}
                 </div>
 

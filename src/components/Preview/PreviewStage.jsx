@@ -20,10 +20,11 @@ export const PreviewStage = ({
     zoomEnabled,
     cursorFxEnabled,
     onEnableScreen,
-    onEnableCamera
+    onEnableCamera,
+    editMode = false
 }) => {
-    const useCanvas = cameraStream || activeBg !== 'none' || (screenScale && screenScale < 1.0) || (recordingQuality && recordingQuality !== 'native') || webcamOnly || annotationEnabled || zoomEnabled || cursorFxEnabled;
-    const showPlaceholder = !cameraStream && !screenStream;
+    const useCanvas = editMode || cameraStream || activeBg !== 'none' || (screenScale && screenScale < 1.0) || (recordingQuality && recordingQuality !== 'native') || webcamOnly || annotationEnabled || zoomEnabled || cursorFxEnabled;
+    const showPlaceholder = !editMode && !cameraStream && !screenStream;
 
     const videoRef = React.useRef(null);
     React.useEffect(() => {
