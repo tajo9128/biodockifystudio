@@ -280,6 +280,18 @@ export const useTimeline = () => {
         const startTime = Date.now();
         const startCurrent = currentTime;
 
+        // Unmute and play current video for audio output
+        const activeClip = clips.find(c => currentTime >= c.startTime && currentTime < c.startTime + c.duration);
+        if (activeClip) {
+            const video = getOrCreateVideo(activeClip);
+            if (video) {
+                video.muted = false;
+                video.currentTime = activeClip.sourceStart + (currentTime - activeClip.startTime) * (activeClip.speed || 1);
+                video.play().catch(() => {});
+                video.playbackRate = activeClip.speed || 1;
+            }
+        }
+
         playIntervalRef.current = setInterval(() => {
             const elapsed = (Date.now() - startTime) / 1000;
             const newTime = startCurrent + elapsed;
@@ -292,13 +304,18 @@ export const useTimeline = () => {
                 setCurrentTime(newTime);
             }
         }, 1000 / 30);
-    }, [currentTime, duration]);
+    }, [currentTime, duration, clips, getOrCreateVideo]);
 
     const pause = useCallback(() => {
         if (playIntervalRef.current) {
             clearInterval(playIntervalRef.current);
             playIntervalRef.current = null;
         }
+        // Pause all videos
+        videoCacheRef.current.forEach(v => {
+            v.pause();
+            v.muted = true;
+        });
         setIsPlaying(false);
     }, []);
 
@@ -319,7 +336,7 @@ export const useTimeline = () => {
         let video = videoCacheRef.current.get(clip.id);
         if (!video) {
             video = document.createElement('video');
-            video.muted = true;
+            video.muted = clip.type === 'audio' ? false : true;
             video.playsInline = true;
             video.preload = 'auto';
             video.src = clip.sourceUrl;
