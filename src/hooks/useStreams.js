@@ -42,17 +42,7 @@ export const useStreams = (screenVideoRef, cameraVideoRef, setStatus) => {
     };
 
     const toggleMic = async () => {
-        if (audioStream) {
-            if (audioStream === cameraStream) { setAudioStream(null); return null; }
-            mediaManager.stopStream(audioStream);
-            setAudioStream(null);
-            return null;
-        }
-        // If camera is already on with audio, just enable mic from camera stream
-        if (cameraStream && cameraStream.getAudioTracks().length > 0) {
-            setAudioStream(cameraStream);
-            return cameraStream;
-        }
+        if (audioStream) { mediaManager.stopStream(audioStream); setAudioStream(null); return null; }
         try {
             const stream = await mediaManager.getAudioStream();
             setAudioStream(stream);
@@ -62,23 +52,13 @@ export const useStreams = (screenVideoRef, cameraVideoRef, setStatus) => {
     };
 
     const toggleCamera = async () => {
-        if (cameraStream) {
-            const wasShared = audioStream === cameraStream;
-            mediaManager.stopStream(cameraStream);
-            setCameraStream(null);
-            setCameraDimensions({ width: 0, height: 0 });
-            if (cameraVideoRef.current) cameraVideoRef.current.srcObject = null;
-            if (wasShared) setAudioStream(null);
-            return null;
-        }
+        if (cameraStream) { mediaManager.stopStream(cameraStream); setCameraStream(null); setCameraDimensions({ width: 0, height: 0 }); if (cameraVideoRef.current) cameraVideoRef.current.srcObject = null; return null; }
         try {
-            // Combine camera + mic into ONE stream to stay under browser's 3-stream limit
-            const stream = await mediaManager.getCameraStream(!audioStream);
-            const videoTrack = stream.getVideoTracks()[0];
-            const s = videoTrack.getSettings();
+            const stream = await mediaManager.getCameraStream();
+            const track = stream.getVideoTracks()[0];
+            const s = track.getSettings();
             setCameraDimensions({ width: s.width || 1280, height: s.height || 720 });
             setCameraStream(stream);
-            if (!audioStream && stream.getAudioTracks().length > 0) setAudioStream(stream);
             if (cameraVideoRef.current) cameraVideoRef.current.srcObject = stream;
             cameraVideoRef.current?.play().catch(() => {});
             setStatus('ready');
