@@ -258,13 +258,11 @@ const ScreenRecorder = () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d', { alpha: false });
+        const tpl = layoutTemplate;
         const isCanvasNeeded = cameraStream || activeBg !== 'none' || screenScale < 1.0 || (recordingQuality && recordingQuality !== 'native') || webcamOnly || annotationEnabled || zoomEnabled;
-        if (!isCanvasNeeded) return;
+        if (!isCanvasNeeded && tpl !== 'side-by-side' && tpl !== 'stacked') return;
 
-        const bubbleSize = canvas.height * webcamScale;
-        const { x, y } = webcamPos.current;
-        applyZoom(ctx, canvas.width, canvas.height);
-
+        // Background
         const preset = BACKGROUND_PRESETS.find(p => p.id === activeBg);
         if (preset && preset.colors) {
             const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
@@ -274,14 +272,65 @@ const ScreenRecorder = () => {
             ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
 
-        if (webcamOnly && cameraStream && cameraVideoRef.current.readyState >= 2) {
+        applyZoom(ctx, canvas.width, canvas.height);
+
+        const hasScreen = screenStream && screenVideoRef.current.readyState >= 2 && tpl !== 'camera-only';
+        const hasCamera = cameraStream && cameraVideoRef.current.readyState >= 2 && tpl !== 'screen-only';
+
+        if (tpl === 'camera-only' && hasCamera) {
             const v = cameraVideoRef.current;
             const a = v.videoWidth / v.videoHeight, ca = canvas.width / canvas.height;
             let dw, dh;
             if (a > ca) { dh = canvas.height; dw = canvas.height * a; } else { dw = canvas.width; dh = canvas.width / a; }
             ctx.drawImage(v, (canvas.width - dw) / 2, (canvas.height - dh) / 2, dw, dh);
+        } else if (tpl === 'side-by-side') {
+            const hw = canvas.width / 2;
+            if (hasScreen) {
+                const v = screenVideoRef.current;
+                const a = v.videoWidth / v.videoHeight;
+                let dw, dh;
+                if (a > (hw / canvas.height)) { dw = hw; dh = hw / a; } else { dh = canvas.height; dw = canvas.height * a; }
+                ctx.drawImage(v, (hw - dw) / 2, (canvas.height - dh) / 2, dw, dh);
+            }
+            if (hasCamera) {
+                const v = cameraVideoRef.current;
+                const bSize = canvas.height * webcamScale;
+                ctx.save(); ctx.beginPath();
+
+                if (webcamShape === 'circle') ctx.arc(canvas.width - bSize / 2 - 16, canvas.height - bSize / 2 - 16, bSize / 2, 0, Math.PI * 2);
+                else ctx.roundRect(canvas.width - bSize - 16, canvas.height - bSize - 16, bSize, bSize, 16);
+                ctx.clip();
+                const a2 = v.videoWidth / v.videoHeight;
+                let dw2, dh2;
+                if (a2 > 1) { dw2 = bSize * a2; dh2 = bSize; } else { dw2 = bSize; dh2 = bSize / a2; }
+                ctx.drawImage(v, canvas.width - bSize - 16, canvas.height - bSize - 16, dw2, dh2);
+                ctx.restore();
+            }
+        } else if (tpl === 'stacked') {
+            const hh = canvas.height / 2;
+            if (hasScreen) {
+                const v = screenVideoRef.current;
+                const a = v.videoWidth / v.videoHeight;
+                let dw, dh;
+                if (a > (canvas.width / hh)) { dw = canvas.width; dh = canvas.width / a; } else { dh = hh; dw = hh * a; }
+                ctx.drawImage(v, (canvas.width - dw) / 2, (hh - dh) / 2, dw, dh);
+            }
+            if (hasCamera) {
+                const v = cameraVideoRef.current;
+                const bSize = hh * 0.5;
+                ctx.save(); ctx.beginPath();
+                if (webcamShape === 'circle') ctx.arc(canvas.width - bSize / 2 - 8, canvas.height - bSize / 2 - 8, bSize / 2, 0, Math.PI * 2);
+                else ctx.roundRect(canvas.width - bSize - 8, canvas.height - bSize - 8, bSize, bSize, 16);
+                ctx.clip();
+                const a2 = v.videoWidth / v.videoHeight;
+                let dw2, dh2;
+                if (a2 > 1) { dw2 = bSize * a2; dh2 = bSize; } else { dw2 = bSize; dh2 = bSize / a2; }
+                ctx.drawImage(v, canvas.width - bSize - 8, canvas.height - bSize - 8, dw2, dh2);
+                ctx.restore();
+            }
         } else {
-            if (screenStream && screenVideoRef.current.readyState >= 2) {
+            // screen-only or pip modes
+            if (hasScreen) {
                 const v = screenVideoRef.current;
                 const a = v.videoWidth / v.videoHeight, ca = canvas.width / canvas.height;
                 let dw, dh;
@@ -291,18 +340,28 @@ const ScreenRecorder = () => {
                 if (screenScale < 1.0) { ctx.save(); ctx.beginPath(); ctx.roundRect(sx, sy, sw, sh, 16); ctx.clip(); ctx.drawImage(v, sx, sy, sw, sh); ctx.restore(); }
                 else ctx.drawImage(v, sx, sy, sw, sh);
             }
-            if (cameraStream && cameraVideoRef.current.readyState >= 2) {
+            if ((tpl === 'pip-circle' || tpl === 'pip-rect') && hasCamera) {
                 const v = cameraVideoRef.current;
+                const bSize = canvas.height * webcamScale;
+                const pad = 16;
+                let px, py;
+                switch (pipCorner) {
+                    case 'tl': px = pad; py = pad; break;
+                    case 'tr': px = canvas.width - bSize - pad; py = pad; break;
+                    case 'bl': px = pad; py = canvas.height - bSize - pad; break;
+                    default: px = canvas.width - bSize - pad; py = canvas.height - bSize - pad; break;
+                }
+                const { x, y } = webcamPos.current;
+                if (x === 20 && y === 410) { px = canvas.width - bSize - pad; py = canvas.height - bSize - pad; }
+                else { px = x; py = y; }
                 const a = v.videoWidth / v.videoHeight;
                 let dw, dh, dx, dy;
-                if (a > 1) { dw = bubbleSize * a; dh = bubbleSize; dx = x - (dw - bubbleSize) / 2; dy = y; }
-                else { dw = bubbleSize; dh = bubbleSize / a; dx = x; dy = y - (dh - bubbleSize) / 2; }
-                if (webcamShape !== 'square') {
-                    ctx.save(); ctx.beginPath();
-                    if (webcamShape === 'circle') ctx.arc(x + bubbleSize / 2, y + bubbleSize / 2, bubbleSize / 2, 0, Math.PI * 2);
-                    else ctx.roundRect(x, y, bubbleSize, bubbleSize, 32);
-                    ctx.clip(); ctx.drawImage(v, dx, dy, dw, dh); ctx.restore();
-                } else ctx.drawImage(v, dx, dy, dw, dh);
+                if (a > 1) { dw = bSize * a; dh = bSize; dx = px - (dw - bSize) / 2; dy = py; }
+                else { dw = bSize; dh = bSize / a; dx = px; dy = py - (dh - bSize) / 2; }
+                ctx.save(); ctx.beginPath();
+                if (tpl === 'pip-circle') ctx.arc(px + bSize / 2, py + bSize / 2, bSize / 2, 0, Math.PI * 2);
+                else { if (webcamShape !== 'square') ctx.roundRect(px, py, bSize, bSize, 32); else ctx.rect(px, py, bSize, bSize); }
+                ctx.clip(); ctx.drawImage(v, dx, dy, dw, dh); ctx.restore();
             }
         }
         restoreZoom(ctx);
@@ -310,7 +369,7 @@ const ScreenRecorder = () => {
         annotation.drawAnnotations(ctx);
         overlays.drawOverlays(ctx, 0);
         applyFilters(ctx, canvas, activeFilters);
-    }, [cameraStream, screenStream, activeBg, webcamScale, screenScale, webcamShape, recordingQuality, webcamOnly, annotationEnabled, zoomEnabled, drawCursorFx, annotation, applyZoom, restoreZoom, activeFilters, overlays]);
+    }, [cameraStream, screenStream, activeBg, webcamScale, screenScale, webcamShape, recordingQuality, webcamOnly, annotationEnabled, zoomEnabled, cursorFxEnabled, drawCursorFx, annotation, applyZoom, restoreZoom, activeFilters, overlays, layoutTemplate, pipCorner]);
 
     const launchLoop = useCallback(() => {
         const isCanvasNeeded = cameraStream || activeBg !== 'none' || screenScale < 1.0 || recordingQuality !== 'native' || webcamOnly || cursorFxEnabled || annotationEnabled || zoomEnabled;
