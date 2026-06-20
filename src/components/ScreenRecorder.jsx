@@ -527,7 +527,7 @@ const ScreenRecorder = () => {
                         } catch (e) {
                             showToast('Camera unavailable', 'Check camera connection or browser permissions', 'error');
                         }
-                    }} disabled={isRecording}>
+                    }}>
                     📷 Cam
                 </button>
                 <button className={`btn-pill ${audioStream ? 'active' : ''}`}
@@ -538,11 +538,11 @@ const ScreenRecorder = () => {
                         } catch (e) {
                             showToast('Mic unavailable', 'Check microphone connection or browser permissions', 'error');
                         }
-                    }} disabled={isRecording}>
+                    }}>
                     🎤 Mic
                 </button>
                 <button className={`btn-pill ${screenStream ? 'active' : ''}`}
-                    onClick={async () => { await toggleScreen(); }} disabled={isRecording}>
+                    onClick={async () => { await toggleScreen(); }}>
                     🖥️ Screen
                 </button>
                 <span style={{ color: 'var(--glass-border)', margin: '0 0.25rem' }}>|</span>
