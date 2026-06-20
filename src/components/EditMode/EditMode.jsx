@@ -96,6 +96,7 @@ export const EditMode = () => {
     const [isDragOver, setIsDragOver] = useState(false);
     const [previewClip, setPreviewClip] = useState(null);
     const [toast, setToast] = useState(null);
+    const [uploadQueue, setUploadQueue] = useState([]);
 
     const showToast = useCallback((title, msg, type) => {
         setToast({ title, message: msg, type });
@@ -104,39 +105,30 @@ export const EditMode = () => {
 
     const importFiles = useCallback((files) => {
         Array.from(files).forEach(file => {
+            const fileId = `${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+            setUploadQueue(prev => [...prev, { id: fileId, name: file.name, size: file.size, status: 'loading' }]);
             try {
-                // Skip files larger than 500MB to prevent OOM
                 if (file.size > 10 * 1024 * 1024 * 1024) {
-                    showToast('File too large', `${file.name} (>500MB). Use smaller files.`, 'error');
+                    setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'error', error: '>10GB' } : f));
                     return;
                 }
-                const url = URL.createObjectURL(file);
-                const video = document.createElement('video');
-                video.preload = 'metadata';
-                video.onloadedmetadata = () => {
-                    const dur = video.duration || 10;
-                    // Store the File object, not blob URL, to save memory
-                    const fileRef = file;
-                    timeline.addClip(0, {
-                        sourceUrl: url,
-                        duration: dur,
-                        sourceEnd: dur,
-                        label: file.name.replace(/\.[^/.]+$/, ''),
-                        type: file.type?.startsWith('audio') ? 'audio' : 'video',
-                        _fileRef: fileRef,
-                    });
-                    showToast('Imported', file.name, 'success');
-                };
-                video.onerror = () => {
-                    URL.revokeObjectURL(url);
-                    showToast('Import Error', `${file.name} - unsupported format`, 'error');
-                };
-                video.src = url;
+                // DON'T create blob URL here - store File ref only to avoid OOM
+                // Blob URL created lazily during playback via getOrCreateVideo
+                timeline.addClip(0, {
+                    sourceUrl: null,
+                    duration: 10,
+                    sourceEnd: 10,
+                    label: file.name.replace(/\.[^/.]+$/, ''),
+                    type: file.type?.startsWith('audio') ? 'audio' : 'video',
+                    _fileRef: file,
+                });
+                setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'done' } : f));
+                setTimeout(() => setUploadQueue(prev => prev.filter(f => f.id !== fileId)), 2000);
             } catch (e) {
-                showToast('Import Failed', file.name, 'error');
+                setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'error', error: e.message } : f));
             }
         });
-    }, [timeline, showToast]);
+    }, [timeline]);
 
     const handleImportMedia = useCallback((e) => {
         const files = e.target.files;
@@ -566,6 +558,33 @@ export const EditMode = () => {
                     onAddTextOverlay={handleAddTextOverlay}
                 />
             </div>
+
+            {uploadQueue.length > 0 && (
+                <div style={{
+                    background: 'var(--nav-bg)', borderTop: '1px solid var(--glass-border)',
+                    borderBottom: '1px solid var(--glass-border)', padding: '0.4rem 0.8rem',
+                    display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center',
+                    fontSize: '0.7rem', overflow: 'hidden'
+                }}>
+                    {uploadQueue.map(f => (
+                        <div key={f.id} style={{
+                            display: 'flex', alignItems: 'center', gap: '0.4rem',
+                            padding: '0.15rem 0.5rem', borderRadius: 6,
+                            background: f.status === 'done' ? 'rgba(16,185,129,0.1)' :
+                                        f.status === 'error' ? 'rgba(239,68,68,0.1)' : 'var(--glass)',
+                            border: `1px solid ${f.status === 'done' ? 'var(--success)' :
+                                              f.status === 'error' ? 'var(--danger)' : 'var(--glass-border)'}`,
+                        }}>
+                            <span>{f.status === 'loading' ? '⏳' : f.status === 'done' ? '✅' : '❌'}</span>
+                            <span style={{ color: 'var(--text-main)' }}>{f.name}</span>
+                            <span style={{ color: 'var(--text-muted)' }}>{(f.size / 1024 / 1024).toFixed(0)}MB</span>
+                            <span style={{ color: f.status === 'done' ? 'var(--success)' : f.status === 'error' ? 'var(--danger)' : 'var(--text-muted)' }}>
+                                {f.status === 'loading' ? 'Importing...' : f.status === 'done' ? 'Done' : f.error || 'Error'}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             <div className="edit-mode-timeline">
                 <input ref={fileInputRef} type="file" accept="video/*,audio/*" multiple style={{ display: 'none' }} onChange={handleImportMedia} />

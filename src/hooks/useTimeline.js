@@ -322,19 +322,25 @@ export const useTimeline = () => {
         const cid = clip.id;
         let video = videoCacheRef.current.get(cid);
         if (!video) {
-            // Limit cache to 5 videos max
-            if (videoCacheRef.current.size >= 5) {
+            // Aggressive cache: max 2 videos to prevent OOM
+            while (videoCacheRef.current.size >= 2) {
                 const first = videoCacheRef.current.keys().next().value;
                 const old = videoCacheRef.current.get(first);
-                if (old) { old.pause(); old.src = ''; old.load(); }
+                if (old) { 
+                    old.pause(); 
+                    const oldUrl = old.src;
+                    old.src = '';
+                    old.load();
+                    if (oldUrl && oldUrl.startsWith('blob:')) URL.revokeObjectURL(oldUrl);
+                }
                 videoCacheRef.current.delete(first);
             }
             video = document.createElement('video');
             video.muted = true;
             video.playsInline = true;
             video.preload = 'metadata';
-            // Use existing blob URL or recreate from File ref
-            const url = clip.sourceUrl || (clip._fileRef ? URL.createObjectURL(clip._fileRef) : null);
+            // Lazily create blob URL from File ref
+            const url = clip._fileRef ? URL.createObjectURL(clip._fileRef) : null;
             if (!url) return null;
             video.src = url;
             videoCacheRef.current.set(cid, video);
