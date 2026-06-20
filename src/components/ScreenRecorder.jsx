@@ -137,7 +137,7 @@ const ScreenRecorder = () => {
         activeBg, screenScale, canvasRef,
         recordingQuality,
         bitrate: QUALITY_PRESETS[recordingQuality].bitrate,
-        mimeType: EXPORT_FORMATS.find(f => f.id === recordingFormat)?.mimeType,
+        useCanvas: true,
         onComplete: handleRecordingComplete
     });
 
