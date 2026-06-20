@@ -139,10 +139,14 @@ const ScreenRecorder = () => {
         onComplete: handleRecordingComplete
     });
 
-    // Cleanup streams on unmount when not recording
+    // Keep refs current for cleanup
+    const stopStreamsRef = useRef(stopStreams);
+    stopStreamsRef.current = stopStreams;
+
+    // Cleanup streams on unmount
     useEffect(() => {
-        return () => { if (!isRecording) stopStreams(); };
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+        return () => { stopStreamsRef.current(); };
+    }, []);
 
     // AI command handler
     const handleAICommand = useCallback(async (input) => {
@@ -202,6 +206,9 @@ const ScreenRecorder = () => {
         resetRecording(); stopStreams(); setActiveBg('none'); setScreenScale(1.0);
     }, [resetRecording, stopStreams]);
 
+    const handleStopAllRef = useRef(handleStopAll);
+    handleStopAllRef.current = handleStopAll;
+
     useEffect(() => {
         screenVideoRef.current = document.createElement('video');
         screenVideoRef.current.muted = true;
@@ -211,7 +218,7 @@ const ScreenRecorder = () => {
         cameraVideoRef.current.muted = true;
         cameraVideoRef.current.autoplay = true;
         cameraVideoRef.current.playsInline = true;
-        return () => handleStopAll();
+        return () => handleStopAllRef.current();
     }, []);
 
     // Guard against accidental page close during recording
@@ -258,8 +265,9 @@ const ScreenRecorder = () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d', { alpha: false });
+        const roundRect = (x, y, w, h, r) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r); ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r); ctx.lineTo(x + r, y + h); ctx.arcTo(x, y + h, x, y + h - r, r); ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r); ctx.closePath(); };
         const tpl = layoutTemplate;
-        const isCanvasNeeded = cameraStream || activeBg !== 'none' || screenScale < 1.0 || (recordingQuality && recordingQuality !== 'native') || webcamOnly || annotationEnabled || zoomEnabled;
+        const isCanvasNeeded = cameraStream || activeBg !== 'none' || screenScale < 1.0 || (recordingQuality && recordingQuality !== 'native') || webcamOnly || annotationEnabled || zoomEnabled || cursorFxEnabled;
         if (!isCanvasNeeded && tpl !== 'side-by-side' && tpl !== 'stacked') return;
 
         // Background
@@ -298,7 +306,7 @@ const ScreenRecorder = () => {
                 ctx.save(); ctx.beginPath();
 
                 if (webcamShape === 'circle') ctx.arc(canvas.width - bSize / 2 - 16, canvas.height - bSize / 2 - 16, bSize / 2, 0, Math.PI * 2);
-                else ctx.roundRect(canvas.width - bSize - 16, canvas.height - bSize - 16, bSize, bSize, 16);
+                else roundRect(canvas.width - bSize - 16, canvas.height - bSize - 16, bSize, bSize, 16);
                 ctx.clip();
                 const a2 = v.videoWidth / v.videoHeight;
                 let dw2, dh2;
@@ -320,7 +328,7 @@ const ScreenRecorder = () => {
                 const bSize = hh * 0.5;
                 ctx.save(); ctx.beginPath();
                 if (webcamShape === 'circle') ctx.arc(canvas.width - bSize / 2 - 8, canvas.height - bSize / 2 - 8, bSize / 2, 0, Math.PI * 2);
-                else ctx.roundRect(canvas.width - bSize - 8, canvas.height - bSize - 8, bSize, bSize, 16);
+                else roundRect(canvas.width - bSize - 8, canvas.height - bSize - 8, bSize, bSize, 16);
                 ctx.clip();
                 const a2 = v.videoWidth / v.videoHeight;
                 let dw2, dh2;
@@ -337,7 +345,7 @@ const ScreenRecorder = () => {
                 if (a > ca) { dw = canvas.width; dh = canvas.width / a; } else { dh = canvas.height; dw = canvas.height * a; }
                 const sw = dw * screenScale, sh = dh * screenScale;
                 const sx = (canvas.width - sw) / 2, sy = (canvas.height - sh) / 2;
-                if (screenScale < 1.0) { ctx.save(); ctx.beginPath(); ctx.roundRect(sx, sy, sw, sh, 16); ctx.clip(); ctx.drawImage(v, sx, sy, sw, sh); ctx.restore(); }
+                if (screenScale < 1.0) { ctx.save(); ctx.beginPath(); roundRect(sx, sy, sw, sh, 16); ctx.clip(); ctx.drawImage(v, sx, sy, sw, sh); ctx.restore(); }
                 else ctx.drawImage(v, sx, sy, sw, sh);
             }
             if ((tpl === 'pip-circle' || tpl === 'pip-rect') && hasCamera) {
@@ -351,16 +359,13 @@ const ScreenRecorder = () => {
                     case 'bl': px = pad; py = canvas.height - bSize - pad; break;
                     default: px = canvas.width - bSize - pad; py = canvas.height - bSize - pad; break;
                 }
-                const { x, y } = webcamPos.current;
-                if (x === 20 && y === 410) { px = canvas.width - bSize - pad; py = canvas.height - bSize - pad; }
-                else { px = x; py = y; }
                 const a = v.videoWidth / v.videoHeight;
                 let dw, dh, dx, dy;
                 if (a > 1) { dw = bSize * a; dh = bSize; dx = px - (dw - bSize) / 2; dy = py; }
                 else { dw = bSize; dh = bSize / a; dx = px; dy = py - (dh - bSize) / 2; }
                 ctx.save(); ctx.beginPath();
                 if (tpl === 'pip-circle') ctx.arc(px + bSize / 2, py + bSize / 2, bSize / 2, 0, Math.PI * 2);
-                else { if (webcamShape !== 'square') ctx.roundRect(px, py, bSize, bSize, 32); else ctx.rect(px, py, bSize, bSize); }
+                else { if (webcamShape !== 'square') roundRect(px, py, bSize, bSize, 32); else ctx.rect(px, py, bSize, bSize); }
                 ctx.clip(); ctx.drawImage(v, dx, dy, dw, dh); ctx.restore();
             }
         }
@@ -372,7 +377,8 @@ const ScreenRecorder = () => {
     }, [cameraStream, screenStream, activeBg, webcamScale, screenScale, webcamShape, recordingQuality, webcamOnly, annotationEnabled, zoomEnabled, cursorFxEnabled, drawCursorFx, annotation, applyZoom, restoreZoom, activeFilters, overlays, layoutTemplate, pipCorner]);
 
     const launchLoop = useCallback(() => {
-        const isCanvasNeeded = cameraStream || activeBg !== 'none' || screenScale < 1.0 || recordingQuality !== 'native' || webcamOnly || cursorFxEnabled || annotationEnabled || zoomEnabled;
+        const needsTemplate = layoutTemplate === 'side-by-side' || layoutTemplate === 'stacked' || ((layoutTemplate === 'pip-circle' || layoutTemplate === 'pip-rect') && cameraStream);
+        const isCanvasNeeded = cameraStream || activeBg !== 'none' || screenScale < 1.0 || recordingQuality !== 'native' || webcamOnly || cursorFxEnabled || annotationEnabled || zoomEnabled || needsTemplate;
         if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null; }
         if (isCanvasNeeded) {
             workerRef.current = new Worker(new URL('../workers/heartbeat.worker.js', import.meta.url), { type: 'module' });
@@ -380,7 +386,7 @@ const ScreenRecorder = () => {
             workerRef.current.postMessage({ action: 'setFps', fps: 30 });
             workerRef.current.postMessage({ action: 'start' });
         }
-    }, [cameraStream, activeBg, screenScale, recordingQuality, webcamOnly, cursorFxEnabled, annotationEnabled, zoomEnabled, renderFrame]);
+    }, [cameraStream, activeBg, screenScale, recordingQuality, webcamOnly, cursorFxEnabled, annotationEnabled, zoomEnabled, renderFrame, layoutTemplate]);
 
     useEffect(() => { launchLoop(); return () => { if (workerRef.current) workerRef.current.terminate(); }; }, [launchLoop]);
 
@@ -499,6 +505,7 @@ const ScreenRecorder = () => {
                 annotationEnabled={annotationEnabled} setAnnotationEnabled={setAnnotationEnabled}
                 zoomEnabled={zoomEnabled} setZoomEnabled={setZoomEnabled}
                 chatOpen={chatOpen} setChatOpen={setChatOpen}
+                youtubeOpen={ytOpen} setYoutubeOpen={setYtOpen}
                 filterPanelOpen={filterPanelOpen} setFilterPanelOpen={setFilterPanelOpen}
                 sourceType={sourceType} setSourceType={setSourceType}
                 toggleSystemAudio={toggleSystemAudio} systemAudioStream={systemAudioStream} />
@@ -552,7 +559,7 @@ const ScreenRecorder = () => {
                     onSelectClip={timeline.setSelectedClipId}
                     onSeek={timeline.seek}
                     onSplit={timeline.splitAtPlayhead}
-                    onDelete={timeline.deleteSelected}
+                    onDelete={(id) => timeline.removeClip(id || timeline.selectedClipId)}
                     onMove={timeline.moveClip}
                     onResize={timeline.resizeClip}
                     onPlay={timeline.play}
