@@ -116,11 +116,12 @@ export const EditMode = () => {
                         label: file.name.replace(/\.[^/.]+$/, ''),
                         type: file.type?.startsWith('audio') ? 'audio' : 'video',
                     });
+                    showToast('Imported', file.name, 'success');
                 };
-                video.onerror = () => showToast('Import Error', `${file.name} could not be loaded`, 'error');
+                video.onerror = () => showToast('Import Error', `${file.name} - unsupported format`, 'error');
                 video.src = url;
             } catch (e) {
-                console.error('File import failed:', file.name, e);
+                showToast('Import Failed', file.name, 'error');
             }
         });
     }, [timeline, showToast]);
