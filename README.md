@@ -40,7 +40,7 @@ BioDockify Studio is a **browser-based screen recorder, video editor, and live s
 
 ```bash
 # Pull and run
-docker run -p 3000:80 tajo9128/biodockifystudio:v1.0.0
+docker run -p 3000:80 tajo9128/biodockifystudio:v2.0.0
 
 # Open http://localhost:3000
 ```
@@ -75,8 +75,8 @@ npm run dev
 
 | Image | Description | Tag |
 |---|---|---|
-| `tajo9128/biodockifystudio` | Frontend (Nginx) | `v1.0.0` |
-| `tajo9128/biodockifystudio-relay` | RTMP relay server | `v1.0.0` |
+| `tajo9128/biodockifystudio` | Frontend (Nginx) | `v2.0.0` |
+| `tajo9128/biodockifystudio-relay` | RTMP relay server | `v2.0.0` |
 
 ### Docker Compose Files
 
