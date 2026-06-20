@@ -112,18 +112,23 @@ export const EditMode = () => {
                     setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'error', error: '>10GB' } : f));
                     return;
                 }
-                // DON'T create blob URL here - store File ref only to avoid OOM
-                // Blob URL created lazily during playback via getOrCreateVideo
-                timeline.addClip(0, {
-                    sourceUrl: null,
-                    duration: 10,
-                    sourceEnd: 10,
-                    label: file.name.replace(/\.[^/.]+$/, ''),
-                    type: file.type?.startsWith('audio') ? 'audio' : 'video',
-                    _fileRef: file,
-                });
-                setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'done' } : f));
-                setTimeout(() => setUploadQueue(prev => prev.filter(f => f.id !== fileId)), 2000);
+                const url = URL.createObjectURL(file);
+                const video = document.createElement('video');
+                video.preload = 'metadata';
+                video.onloadedmetadata = () => {
+                    timeline.addClip(0, {
+                        sourceUrl: url, duration: video.duration || 10, sourceEnd: video.duration || 10,
+                        label: file.name.replace(/\.[^/.]+$/, ''),
+                        type: file.type?.startsWith('audio') ? 'audio' : 'video',
+                    });
+                    setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'done' } : f));
+                    setTimeout(() => setUploadQueue(prev => prev.filter(f => f.id !== fileId)), 2000);
+                };
+                video.onerror = () => {
+                    URL.revokeObjectURL(url);
+                    setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'error', error: 'unsupported' } : f));
+                };
+                video.src = url;
             } catch (e) {
                 setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'error', error: e.message } : f));
             }
