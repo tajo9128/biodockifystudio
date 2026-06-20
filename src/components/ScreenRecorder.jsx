@@ -85,6 +85,7 @@ const ScreenRecorder = () => {
     const overlays = useOverlays();
     const [showTimeline, setShowTimeline] = useState(false);
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+    const [youtubeOpen, setYoutubeOpen] = useState(false);
 
     const toastTimerRef = useRef(null);
 
@@ -235,6 +236,22 @@ Rules:
     const dragOffset = useRef({ x: 0, y: 0 });
     const countdownTimerRef = useRef(null);
     const elapsedTimerRef = useRef(null);
+    const startGuardRef = useRef(false);
+
+    const handleRecordScreen = useCallback(async () => {
+        if (startGuardRef.current) return;
+        startGuardRef.current = true;
+        try {
+            if (!screenStream) await toggleScreen();
+            if (!screenStream && !cameraStream) { startGuardRef.current = false; return; }
+            setTimeout(() => {
+                startMediaRecording();
+                startGuardRef.current = false;
+            }, 500);
+        } catch {
+            startGuardRef.current = false;
+        }
+    }, [screenStream, toggleScreen, startMediaRecording, cameraStream]);
 
     const handleStopAll = useCallback(() => {
         if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
@@ -458,7 +475,8 @@ Rules:
                 isRecording={isRecording} status={recordingStatus} countdown={countdown} recordingQuality={recordingQuality}
                 currentDimensions={currentDimensions} handleMouseDown={handleMouseDown} handleMouseMove={handleMouseMove}
                 handleMouseUp={handleMouseUp} elapsedTime={formatTime(elapsedTime)}
-                webcamOnly={webcamOnly} annotationEnabled={annotationEnabled} zoomEnabled={zoomEnabled} cursorFxEnabled={cursorFxEnabled} />
+                webcamOnly={webcamOnly} annotationEnabled={annotationEnabled} zoomEnabled={zoomEnabled} cursorFxEnabled={cursorFxEnabled}
+                onEnableScreen={handleRecordScreen} onEnableCamera={toggleCamera} />
 
             {annotationEnabled && (
                 <AnnotationToolbar tool={annotation.tool} setTool={annotation.setTool} color={annotation.color}
@@ -481,6 +499,7 @@ Rules:
                 annotationEnabled={annotationEnabled} setAnnotationEnabled={setAnnotationEnabled}
                 zoomEnabled={zoomEnabled} setZoomEnabled={setZoomEnabled}
                 chatOpen={chatOpen} setChatOpen={setChatOpen}
+                youtubeOpen={youtubeOpen} setYoutubeOpen={setYoutubeOpen}
                 filterPanelOpen={filterPanelOpen} setFilterPanelOpen={setFilterPanelOpen}
                 sourceType={sourceType} setSourceType={setSourceType}
                 toggleSystemAudio={toggleSystemAudio} systemAudioStream={systemAudioStream} />
