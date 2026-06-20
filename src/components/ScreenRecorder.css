@@ -12,28 +12,86 @@
 .recorder-preview.recording { border-color: #ef4444; }
 .recorder-canvas { max-width: 100%; max-height: 100%; }
 
-/* Start screen */
+/* Camera preview overlay */
+.recorder-cam-preview {
+    position: absolute; bottom: 12px; right: 12px; width: 160px; height: 120px;
+    border-radius: 12px; border: 2px solid var(--glass-border); object-fit: cover;
+    background: #000; z-index: 3;
+}
+
+/* === Start screen === */
 .recorder-start-screen {
     position: absolute; inset: 0; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 0.75rem;
-    background: rgba(0,0,0,0.9); z-index: 5;
+    align-items: center; justify-content: center; gap: 1.5rem;
+    background: rgba(0,0,0,0.92); z-index: 5; padding: 2rem;
 }
-.recorder-start-icon { font-size: 3rem; }
-.recorder-start-screen h2 { font-size: 1.5rem; font-weight: 700; color: var(--text-main); margin: 0; }
-.recorder-start-screen p { font-size: 0.9rem; color: var(--text-muted); margin: 0; }
+
+/* Source cards row */
+.recorder-sources {
+    display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;
+}
+.recorder-source-card {
+    display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+    padding: 1.2rem; border-radius: 14px; border: 2px solid var(--glass-border);
+    background: var(--glass); color: var(--text-muted); font-family: inherit;
+    cursor: pointer; transition: all 0.2s; min-width: 140px;
+}
+.recorder-source-card:hover {
+    border-color: var(--primary); background: var(--glass-hover); color: var(--text-main);
+}
+.recorder-source-card.active {
+    border-color: #10b981; background: rgba(16,185,129,0.1); color: var(--text-main);
+}
+.source-icon { font-size: 1.8rem; }
+.source-label { font-size: 0.8rem; font-weight: 700; }
+.source-status { font-size: 0.65rem; opacity: 0.7; }
+.source-status.on { color: #10b981; opacity: 1; }
+
+/* Mic test bar in source card */
+.mic-test-bar {
+    display: inline-block; width: 60px; height: 4px; border-radius: 2px;
+    background: var(--glass); overflow: hidden; vertical-align: middle;
+}
+.mic-test-fill {
+    display: block; height: 100%; border-radius: 2px;
+    background: linear-gradient(90deg, #10b981, #f59e0b, #ef4444); transition: width 0.08s;
+}
+
+/* Start button */
 .recorder-start-btn {
-    margin-top: 0.5rem; padding: 1rem 2.5rem; border: none; border-radius: 16px;
+    padding: 0.9rem 2.5rem; border: none; border-radius: 14px;
     background: #ef4444; color: white; font-size: 1.1rem; font-weight: 800;
     font-family: inherit; cursor: pointer; transition: all 0.2s;
     box-shadow: 0 4px 24px rgba(239,68,68,0.4);
 }
 .recorder-start-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 32px rgba(239,68,68,0.5); }
-.recorder-start-btn:disabled { opacity: 0.6; transform: none; cursor: wait; }
-.recorder-hint { font-size: 0.75rem; color: rgba(255,255,255,0.3); margin-top: 0.5rem; }
+.recorder-start-btn:disabled { opacity: 0.4; transform: none; cursor: not-allowed; }
+.recorder-hint { font-size: 0.75rem; color: rgba(255,255,255,0.3); }
 .recorder-hint kbd {
     padding: 2px 8px; border-radius: 4px; background: rgba(255,255,255,0.1);
     font-family: monospace; font-size: 0.7rem;
 }
+.recorder-folder-info { font-size: 0.75rem; color: var(--text-muted); margin: 0; }
+
+/* Overlay controls when sources active */
+.recorder-overlay-controls {
+    position: absolute; bottom: 12px; left: 12px; right: 12px;
+    display: flex; align-items: center; justify-content: space-between;
+    z-index: 4; gap: 0.5rem;
+}
+.recorder-mini-sources { display: flex; gap: 0.35rem; }
+.recorder-mini-settings { display: flex; gap: 0.35rem; }
+.recorder-mini-ctrl {
+    padding: 0.3rem 0.7rem; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
+    background: rgba(0,0,0,0.75); color: rgba(255,255,255,0.7); font-size: 0.7rem;
+    font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.15s;
+    backdrop-filter: blur(8px);
+}
+.recorder-mini-ctrl:hover { border-color: rgba(255,255,255,0.4); color: white; }
+.recorder-mini-ctrl.active {
+    background: rgba(16,185,129,0.25); color: #10b981; border-color: #10b981;
+}
+select.recorder-mini-ctrl { appearance: none; padding-right: 0.5rem; }
 
 /* === Recording bar === */
 .recorder-bar {
@@ -71,28 +129,6 @@
 .recorder-audio-fill {
     height: 100%; border-radius: 3px;
     background: linear-gradient(90deg, #10b981, #f59e0b, #ef4444); transition: width 0.05s;
-}
-
-/* === Controls (pre-recording) === */
-.recorder-controls {
-    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-    gap: 0.5rem; padding: 0.6rem 1rem; background: var(--bg-card); border-top: 1px solid var(--glass-border);
-}
-.recorder-folder-row {
-    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); z-index: 6;
-}
-.recorder-folder-row .recorder-ctrl {
-    background: rgba(0,0,0,0.7); border-color: rgba(255,255,255,0.1); color: var(--text-muted);
-}
-.recorder-folder-row .recorder-ctrl:hover { border-color: var(--primary); color: var(--text-main); }
-.recorder-ctrl {
-    padding: 0.4rem 0.8rem; border: 1px solid var(--glass-border); border-radius: 8px;
-    background: var(--glass); color: var(--text-muted); font-size: 0.75rem; font-weight: 600;
-    cursor: pointer; font-family: inherit; transition: all 0.15s;
-}
-.recorder-ctrl:hover { background: var(--glass-hover); color: var(--text-main); }
-.recorder-ctrl.active {
-    background: rgba(16,185,129,0.15); color: #10b981; border-color: #10b981;
 }
 
 @keyframes rec-pulse { 0%,100%{opacity:1}50%{opacity:0.5} }

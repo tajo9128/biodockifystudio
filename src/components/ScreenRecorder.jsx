@@ -29,6 +29,7 @@ const ScreenRecorder = () => {
     const [activeBg, setActiveBg] = useState('none');
     const [directoryHandle, setDirectoryHandle] = useState(null);
     const [isStarting, setIsStarting] = useState(false);
+    const [showCamPreview, setShowCamPreview] = useState(false);
     const isStartingRef = useRef(false);
 
     const { screenStream, audioStream, cameraStream, toggleScreen, toggleMic, toggleCamera, stopAll, screenDimensions } = useStreams(screenVideoRef, cameraVideoRef, () => {});
@@ -216,27 +217,98 @@ const ScreenRecorder = () => {
             {/* Preview */}
             <div className={`recorder-preview ${isRecording ? 'recording' : ''}`}>
                 <canvas ref={canvasRef} className="recorder-canvas" />
+                {/* Camera preview overlay when camera active but screen not active */}
+                {!screenStream && cameraStream && !isStarting && (
+                    <video ref={cameraVideoRef} className="recorder-cam-preview" autoPlay muted playsInline />
+                )}
                 {!screenStream && !cameraStream && !isStarting && (
                     <div className="recorder-start-screen">
-                        <div className="recorder-start-icon">🎬</div>
-                        <h2>Start Recording Your Screen</h2>
-                        <p>Record screen, webcam, and audio — auto-saves on stop</p>
+                        <div className="recorder-sources">
+                            <button className={`recorder-source-card ${screenStream ? 'active' : ''}`}
+                                onClick={async () => {
+                                    const stream = await toggleScreen();
+                                    if (stream) { setCameraEnabled(false); }
+                                }}>
+                                <span className="source-icon">🖥️</span>
+                                <span className="source-label">Screen</span>
+                                <span className={`source-status ${screenStream ? 'on' : 'off'}`}>
+                                    {screenStream ? '🔓 Active' : '🔒 Click to enable'}
+                                </span>
+                            </button>
+                            <button className={`recorder-source-card ${cameraStream ? 'active' : ''}`}
+                                onClick={async () => {
+                                    const stream = await toggleCamera();
+                                    if (stream) { setCameraEnabled(true); setShowCamPreview(true); }
+                                    else { setCameraEnabled(false); setShowCamPreview(false); }
+                                }}>
+                                <span className="source-icon">📷</span>
+                                <span className="source-label">Camera</span>
+                                <span className={`source-status ${cameraStream ? 'on' : 'off'}`}>
+                                    {cameraStream ? '🔓 Active' : '🔒 Click to enable'}
+                                </span>
+                            </button>
+                            <button className={`recorder-source-card ${audioStream ? 'active' : ''}`}
+                                onClick={async () => {
+                                    const stream = await toggleMic();
+                                    if (stream) { setMicEnabled(true); } else { setMicEnabled(false); }
+                                }}>
+                                <span className="source-icon">🎤</span>
+                                <span className="source-label">Microphone</span>
+                                <span className={`source-status ${audioStream ? 'on' : 'off'}`}>
+                                    {audioStream ? (
+                                        <span className="mic-test-bar">
+                                            <span className="mic-test-fill" style={{ width: `${Math.min(audioLevel * 100, 100)}%` }} />
+                                        </span>
+                                    ) : '🔒 Click to enable'}
+                                </span>
+                            </button>
+                        </div>
+                        <button className="recorder-start-btn" onClick={startFlow} disabled={isStarting || (!screenStream && !cameraStream)}>
+                            {isStarting ? 'Opening Screen Picker...' : (screenStream || cameraStream) ? 'Start Recording' : 'Enable Screen or Camera to start'}
+                        </button>
+                        <p className="recorder-hint">or press <kbd>Space</kbd></p>
                         {directoryHandle && (
-                            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                            <p className="recorder-folder-info">
                                 📁 Saves to: {directoryHandle.name}
                             </p>
                         )}
-                        <button className="recorder-start-btn" onClick={startFlow} disabled={isStarting}>
-                            {isStarting ? 'Opening Screen Picker...' : 'Start Recording'}
-                        </button>
-                        <p className="recorder-hint">or press <kbd>Space</kbd></p>
                     </div>
                 )}
-                {!screenStream && !cameraStream && !isStarting && (
-                    <div className="recorder-folder-row">
-                        <button className="recorder-ctrl" onClick={selectFolder}>
-                            📁 {directoryHandle ? `Folder: ${directoryHandle.name}` : 'Select Save Folder'}
-                        </button>
+                {/* Source toggles + settings when screen/camera are active, not recording */}
+                {!isRecording && (screenStream || cameraStream) && (
+                    <div className="recorder-overlay-controls">
+                        <div className="recorder-mini-sources">
+                            <button className={`recorder-mini-ctrl ${audioStream ? 'active' : ''}`}
+                                onClick={async () => {
+                                    const stream = await toggleMic();
+                                    if (stream) { setMicEnabled(true); } else { setMicEnabled(false); }
+                                }} title={audioStream ? 'Mic On - Click to mute' : 'Mic Off - Click to enable'}>
+                                🎤 {audioStream ? 'ON' : 'OFF'}
+                            </button>
+                            <button className={`recorder-mini-ctrl ${cameraStream ? 'active' : ''}`}
+                                onClick={async () => {
+                                    const stream = await toggleCamera();
+                                    if (stream) { setCameraEnabled(true); setShowCamPreview(true); }
+                                    else { setCameraEnabled(false); setShowCamPreview(false); }
+                                }} title={cameraStream ? 'Camera On' : 'Camera Off'}>
+                                📷 {cameraStream ? 'ON' : 'OFF'}
+                            </button>
+                        </div>
+                        <div className="recorder-mini-settings">
+                            <select className="recorder-mini-ctrl" value={recQuality} onChange={e => setRecQuality(e.target.value)}>
+                                <option value="720p">720p</option>
+                                <option value="1080p">1080p</option>
+                                <option value="1440p">1440p</option>
+                                <option value="native">Native</option>
+                            </select>
+                            <button className="recorder-mini-ctrl" onClick={selectFolder}>
+                                📁 {directoryHandle ? directoryHandle.name : 'Folder'}
+                            </button>
+                            <button className="recorder-mini-ctrl" onClick={startFlow} disabled={isStarting}
+                                style={{ background: '#ef4444', color: 'white', border: 'none', fontWeight: 700 }}>
+                                {isStarting ? '...' : 'REC'}
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
@@ -258,42 +330,26 @@ const ScreenRecorder = () => {
                         <button className="recorder-btn-stop" onClick={stopRecording}>Stop Recording</button>
                     </div>
                     <div className="recorder-bar-right">
+                        <button className={`recorder-mini-ctrl ${cameraStream ? 'active' : ''}`}
+                            onClick={async () => {
+                                const stream = await toggleCamera();
+                                if (stream) { setCameraEnabled(true); } else { setCameraEnabled(false); }
+                            }}>
+                            📷 {cameraStream ? 'ON' : 'OFF'}
+                        </button>
+                        <button className={`recorder-mini-ctrl ${audioStream ? 'active' : ''}`}
+                            onClick={async () => {
+                                const stream = await toggleMic();
+                                if (stream) { setMicEnabled(true); } else { setMicEnabled(false); }
+                            }}>
+                            🎤 {audioStream ? 'ON' : 'OFF'}
+                        </button>
                         {audioStream && (
                             <div className="recorder-audio-level">
                                 <div className="recorder-audio-fill" style={{ width: `${Math.min(audioLevel * 100, 100)}%` }} />
                             </div>
                         )}
                     </div>
-                </div>
-            )}
-
-            {/* Controls */}
-            {!isRecording && (
-                <div className="recorder-controls">
-                    <button className={`recorder-ctrl ${cameraEnabled ? 'active' : ''}`}
-                        onClick={async () => {
-                            const stream = await toggleCamera();
-                            if (stream) { setCameraEnabled(true); } else { setCameraEnabled(false); }
-                        }}>
-                        📷 {cameraEnabled ? 'Camera On' : 'Camera'}
-                    </button>
-                    <button className={`recorder-ctrl ${micEnabled ? 'active' : ''}`}
-                        onClick={async () => {
-                            const stream = await toggleMic();
-                            if (stream) { setMicEnabled(true); } else { setMicEnabled(false); }
-                        }}>
-                        🎤 {micEnabled ? 'Mic On' : 'Mic'}
-                    </button>
-                    <button className={`recorder-ctrl ${enhancedAudio ? 'active' : ''}`}
-                        onClick={() => setEnhancedAudio(!enhancedAudio)}>
-                        {enhancedAudio ? 'Audio Enhanced' : 'Raw Audio'}
-                    </button>
-                    <select className="recorder-ctrl" value={recQuality} onChange={e => setRecQuality(e.target.value)}>
-                        <option value="720p">720p HD</option>
-                        <option value="1080p">1080p FHD</option>
-                        <option value="1440p">1440p 2K</option>
-                        <option value="native">Native</option>
-                    </select>
                 </div>
             )}
 
