@@ -521,11 +521,23 @@ const ScreenRecorder = () => {
             {/* Single toolbar bar — dadan.io style */}
             <div className="control-bar">
                 <button className={`btn-pill ${cameraStream ? 'active' : ''}`}
-                    onClick={async () => { await toggleCamera(); }} disabled={isRecording}>
+                    onClick={async () => {
+                        try {
+                            const stream = await toggleCamera();
+                            if (stream) showToast('Camera', 'Webcam enabled', 'success');
+                            else if (!cameraStream) showToast('Camera', 'Webcam disabled', 'info');
+                        } catch (e) { showToast('Camera Error', e.message, 'error'); }
+                    }} disabled={isRecording}>
                     📷 Cam
                 </button>
                 <button className={`btn-pill ${audioStream ? 'active' : ''}`}
-                    onClick={async () => { await toggleMic(); }} disabled={isRecording}>
+                    onClick={async () => {
+                        try {
+                            const stream = await toggleMic();
+                            if (stream) showToast('Mic', 'Microphone enabled', 'success');
+                            else if (!audioStream) showToast('Mic', 'Microphone disabled', 'info');
+                        } catch (e) { showToast('Mic Error', e.message, 'error'); }
+                    }} disabled={isRecording}>
                     🎤 Mic
                 </button>
                 <button className={`btn-pill ${screenStream ? 'active' : ''}`}
