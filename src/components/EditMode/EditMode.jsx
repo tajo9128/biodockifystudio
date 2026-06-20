@@ -122,11 +122,14 @@ export const EditMode = () => {
                 const video = document.createElement('video');
                 video.preload = 'metadata';
                 video.onloadedmetadata = () => {
+                    const dur = video.duration || 10;
                     timeline.addClip(0, {
-                        sourceUrl: url, duration: video.duration || 10, sourceEnd: video.duration || 10,
+                        sourceUrl: url, duration: dur, sourceEnd: dur,
                         label: file.name.replace(/\.[^/.]+$/, ''),
                         type: file.type?.startsWith('audio') ? 'audio' : 'video',
                     });
+                    // Release video element memory but keep blob URL
+                    video.removeAttribute('src'); video.load();
                     setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'done' } : f));
                     setTimeout(() => setUploadQueue(prev => prev.filter(f => f.id !== fileId)), 2000);
                 };
@@ -443,12 +446,12 @@ export const EditMode = () => {
     const previewRafRef = useRef(null);
     const currentTimeRef = useRef(timeline.currentTime);
 
-    // Set canvas drawing buffer size
+    // Set canvas drawing buffer size — small to prevent OOM
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas || timeline.clips.length === 0) return;
-        if (canvas.width !== 1920) canvas.width = 1920;
-        if (canvas.height !== 1080) canvas.height = 1080;
+        if (canvas.width !== 854) canvas.width = 854;
+        if (canvas.height !== 480) canvas.height = 480;
     }, [timeline.clips.length]);
 
     // Keep ref in sync with state so rAF loop reads latest time
