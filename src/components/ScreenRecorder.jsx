@@ -581,7 +581,7 @@ const ScreenRecorder = () => {
                         <button className="btn-pill" onClick={pauseRecording}>
                             {isPaused ? '▶ Resume' : '⏸ Pause'}
                         </button>
-                        <button className="btn-pill" onClick={stopRecording}
+                        <button className="btn-pill" onClick={() => { stopRecording(); stopStreams(); }}
                             style={{ background: 'var(--danger)', color: 'white' }}>
                             ⏹ Stop
                         </button>
