@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const SaveRecordingModal = ({ blob, mimeType, onSave, onDiscard, onYouTube }) => {
+const SaveRecordingModal = ({ blob, mimeType, onSave, onDiscard, onYouTube, onEditNow }) => {
     const getExtension = (mt) => {
         if (!mt) return '.webm';
         if (mt.includes('mp4')) return '.mp4';
@@ -69,30 +69,32 @@ const SaveRecordingModal = ({ blob, mimeType, onSave, onDiscard, onYouTube }) =>
                 </div>
 
                 <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
-                    <button
-                        className="btn btn-outline"
-                        onClick={onDiscard}
-                        style={{ flex: 1, padding: '1rem', justifyContent: 'center' }}
-                    >
+                    {onEditNow && (
+                        <button className="btn btn-primary"
+                            onClick={() => { handleConfirm(); onEditNow(blob, mimeType); }}
+                            style={{ flex: 2, padding: '1rem', justifyContent: 'center', background: 'var(--primary)', borderColor: 'var(--primary)' }}>
+                            ✂️ Edit Now
+                        </button>
+                    )}
+                    <button className="btn btn-primary"
+                        onClick={handleConfirm}
+                        disabled={!fileName.trim()}
+                        style={{ flex: 1, padding: '1rem', justifyContent: 'center' }}>
+                        💾 Save
+                    </button>
+                </div>
+                <div style={{ display: 'flex', gap: '1rem', width: '100%', marginTop: '0.5rem' }}>
+                    <button className="btn btn-outline" onClick={onDiscard}
+                        style={{ flex: 1, padding: '0.75rem', justifyContent: 'center' }}>
                         Discard
                     </button>
                     {onYouTube && (
-                        <button
-                            className="btn btn-outline"
+                        <button className="btn btn-outline"
                             onClick={() => { handleConfirm(); onYouTube(); }}
-                            style={{ flex: 1, padding: '1rem', justifyContent: 'center' }}
-                        >
-                            Upload to YouTube
+                            style={{ flex: 1, padding: '0.75rem', justifyContent: 'center' }}>
+                            📺 YouTube
                         </button>
                     )}
-                    <button
-                        className="btn btn-primary"
-                        onClick={handleConfirm}
-                        disabled={!fileName.trim()}
-                        style={{ flex: 2, padding: '1rem', justifyContent: 'center' }}
-                    >
-                        Save Recording
-                    </button>
                 </div>
             </div>
         </div>

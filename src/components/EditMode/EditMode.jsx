@@ -13,6 +13,7 @@ import { useClipBin } from '../../hooks/useClipBin';
 import { ClipBin } from './ClipBin';
 import { ClipMonitor } from './ClipMonitor';
 import { Toast } from '../Notifications/Toast';
+import { recordingStore } from '../../utils/RecordingStore';
 import './EditMode.css';
 
 export const EditMode = () => {
@@ -28,6 +29,21 @@ export const EditMode = () => {
     const [activeFilters, setActiveFilters] = useState([]);
     const [aiOpen, setAiOpen] = useState(false);
     const [annotationEnabled, setAnnotationEnabled] = useState(false);
+
+    // Auto-import recording from recorder on mount
+    useEffect(() => {
+        const rec = recordingStore.get();
+        if (rec?.url && rec.blob) {
+            timeline.addClip(0, {
+                sourceUrl: rec.url,
+                duration: 10,
+                sourceEnd: 10,
+                label: rec.name || 'Recording',
+                type: 'video',
+            });
+            recordingStore.clear();
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const selectedClip = timeline.clips.find(c => c.id === timeline.selectedClipId);
 

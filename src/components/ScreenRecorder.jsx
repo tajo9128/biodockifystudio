@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { storageManager } from '../utils/StorageManager';
 import { BACKGROUND_PRESETS } from '../constants/backgrounds';
 import { useStreams } from '../hooks/useStreams';
@@ -45,6 +46,7 @@ const RECORDING_TEMPLATES = [
 ];
 
 const ScreenRecorder = () => {
+    const navigate = useNavigate();
     const canvasRef = useRef(null);
     const screenVideoRef = useRef(null);
     const cameraVideoRef = useRef(null);
@@ -194,6 +196,12 @@ const ScreenRecorder = () => {
         }
         setPendingRecording(null);
     };
+
+    const handleEditNow = useCallback((blob, mimeType) => {
+        recordingStore.set(blob, mimeType);
+        setPendingRecording(null);
+        navigate('/editor');
+    }, [navigate]);
 
     const webcamPos = useRef({ x: 20, y: 410 });
     const isDragging = useRef(false);
@@ -726,6 +734,7 @@ const ScreenRecorder = () => {
 
             <SaveRecordingModal blob={pendingRecording?.blob} mimeType={pendingRecording?.mimeType}
                 onSave={handleSaveRecording} onDiscard={() => setPendingRecording(null)}
+                onEditNow={handleEditNow}
                 onYouTube={() => setYtOpen(true)} />
 
             <YouTubeUploadModal isOpen={ytOpen} onClose={() => setYtOpen(false)}
