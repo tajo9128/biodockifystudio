@@ -108,10 +108,16 @@ export const EditMode = () => {
             const fileId = `${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
             setUploadQueue(prev => [...prev, { id: fileId, name: file.name, size: file.size, status: 'loading' }]);
             try {
-                if (file.size > 10 * 1024 * 1024 * 1024) {
-                    setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'error', error: '>10GB' } : f));
+                if (file.size > 2 * 1024 * 1024 * 1024) {
+                    setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'error', error: '>2GB' } : f));
                     return;
                 }
+                // Remove oldest clips if > 3 to prevent OOM
+                const toRemove = timeline.clips.length >= 3 ? timeline.clips.slice(0, timeline.clips.length - 2) : [];
+                toRemove.forEach(c => {
+                    if (c.sourceUrl && c.sourceUrl.startsWith('blob:')) URL.revokeObjectURL(c.sourceUrl);
+                    timeline.removeClip(c.id);
+                });
                 const url = URL.createObjectURL(file);
                 const video = document.createElement('video');
                 video.preload = 'metadata';
@@ -124,10 +130,7 @@ export const EditMode = () => {
                     setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'done' } : f));
                     setTimeout(() => setUploadQueue(prev => prev.filter(f => f.id !== fileId)), 2000);
                 };
-                video.onerror = () => {
-                    URL.revokeObjectURL(url);
-                    setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'error', error: 'unsupported' } : f));
-                };
+                video.onerror = () => { URL.revokeObjectURL(url); setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'error', error: 'unsupported' } : f)); };
                 video.src = url;
             } catch (e) {
                 setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'error', error: e.message } : f));

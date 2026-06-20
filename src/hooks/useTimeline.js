@@ -321,7 +321,7 @@ export const useTimeline = () => {
     const getOrCreateVideo = useCallback((clip) => {
         let video = videoCacheRef.current.get(clip.id);
         if (!video) {
-            if (videoCacheRef.current.size >= 8) {
+            if (videoCacheRef.current.size >= 2) {
                 const first = videoCacheRef.current.keys().next().value;
                 const old = videoCacheRef.current.get(first);
                 if (old) { old.pause(); old.src = ''; old.load(); }
