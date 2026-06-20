@@ -1,545 +1,510 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { storageManager } from '../utils/StorageManager';
+import { BACKGROUND_PRESETS } from '../constants/backgrounds';
 import { useStreams } from '../hooks/useStreams';
+import { useFileSystem } from '../hooks/useFileSystem';
 import { useRecording } from '../hooks/useRecording';
 import { useAudioLevel } from '../hooks/useAudioLevel';
-import { recordingStore } from '../utils/RecordingStore';
-import { useAudioProcessor } from '../hooks/useAudioProcessor';
+import { useCursorFx } from '../hooks/useCursorFx';
+import { useAnnotation } from '../hooks/useAnnotation';
+import { useZoom } from '../hooks/useZoom';
+import { EXPORT_FORMATS, getDefaultFormat } from '../constants/formats';
+import { useAI } from '../hooks/useAI';
+import { useYouTube } from '../hooks/useYouTube';
+
+// UI Components
+import { ControlBar } from './Controls/ControlBar';
+import { HistorySidebar } from './Sidebar/HistorySidebar';
+import { PreviewStage } from './Preview/PreviewStage';
 import { Toast } from './Notifications/Toast';
-import './ScreenRecorder.css';
+import { VideoPlayerModal } from './Modals/VideoPlayerModal';
+import SaveRecordingModal from './Modals/SaveRecordingModal';
+import { AnnotationToolbar } from './Annotation/AnnotationToolbar';
+import { ChatPanel } from './Chat/ChatPanel';
+import { YouTubeUploadModal } from './Modals/YouTubeUploadModal';
+import { FilterPanel } from './Filters/FilterPanel';
+import { applyFilters } from '../utils/FilterEngine';
+import { Timeline } from './Timeline/Timeline';
+import { useTimeline } from '../hooks/useTimeline';
+import { useOverlays } from '../hooks/useOverlays';
+import { WelcomeModal } from './WelcomeModal/WelcomeModal';
 
 const QUALITY_PRESETS = {
-    'native': { width: null, height: null, bitrate: 15000000 },
-    '720p': { width: 1280, height: 720, bitrate: 6000000 },
-    '1080p': { width: 1920, height: 1080, bitrate: 12000000 },
-    '1440p': { width: 2560, height: 1440, bitrate: 20000000 },
-};
-
-const RECORDING_TEMPLATES = [
-    { id: 'screen-only', icon: '️', label: 'Screen', desc: 'Screen only' },
-    { id: 'camera-only', icon: '📷', label: 'Camera', desc: 'Webcam only' },
-    { id: 'pip-circle', icon: '', label: 'PiP Circle', desc: 'Screen + circle cam' },
-    { id: 'pip-rect', icon: '📺', label: 'PiP Rect', desc: 'Screen + rect cam' },
-    { id: 'side-by-side', icon: '', label: 'Side by Side', desc: 'Screen left, cam right' },
-    { id: 'stacked', icon: '', label: 'Stacked', desc: 'Screen top, cam bottom' },
-];
-
-const ASPECT_RATIOS = [
-    { id: '16:9', label: '16:9', w: 1920, h: 1080 },
-    { id: '9:16', label: '9:16', w: 1080, h: 1920 },
-    { id: '4:3', label: '4:3', w: 1440, h: 1080 },
-    { id: '1:1', label: '1:1', w: 1080, h: 1080 },
-];
-
-const BG_PRESETS = [
-    { id: 'none', label: 'None', color: '#1a1a1a' },
-    { id: 'gradient1', label: 'Purple', color: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
-    { id: 'gradient2', label: 'Blue', color: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' },
-    { id: 'gradient3', label: 'Green', color: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' },
-    { id: 'gradient4', label: 'Orange', color: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)' },
-    { id: 'gradient5', label: 'Dark', color: 'linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 100%)' },
-];
-
-const drawFit = (ctx, video, x, y, w, h) => {
-    const va = video.videoWidth / video.videoHeight;
-    const ca = w / h;
-    let dw, dh;
-    if (va > ca) { dw = w; dh = w / va; } else { dh = h; dw = h * va; }
-    ctx.drawImage(video, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
-};
-
-const getPipPos = (cw, ch, camW, camH, pad, corner) => {
-    switch (corner) {
-        case 'tl': return { x: pad, y: pad };
-        case 'tr': return { x: cw - camW - pad, y: pad };
-        case 'bl': return { x: pad, y: ch - camH - pad };
-        default:  return { x: cw - camW - pad, y: ch - camH - pad };
-    }
+    'native': { width: null, height: null, label: 'Native Source', bitrate: 15000000 },
+    '720p': { width: 1280, height: 720, label: '720p (HD)', bitrate: 6000000 },
+    '1080p': { width: 1920, height: 1080, label: '1080p (FHD)', bitrate: 12000000 },
+    '1440p': { width: 2560, height: 1440, label: '1440p (2K)', bitrate: 20000000 }
 };
 
 const ScreenRecorder = () => {
     const canvasRef = useRef(null);
     const screenVideoRef = useRef(null);
     const cameraVideoRef = useRef(null);
+    const workerRef = useRef(null);
 
-    const [toast, setToast] = useState(null);
-    const [elapsedTime, setElapsedTime] = useState(0);
-    const [recQuality, setRecQuality] = useState('720p');
-    const [enhancedAudio, setEnhancedAudio] = useState(true);
+    const [status, setStatus] = useState('idle');
+    const {
+        screenStream, audioStream, cameraStream, systemAudioStream,
+        screenDimensions, cameraDimensions,
+        sourceType, setSourceType,
+        toggleScreen, toggleSystemAudio, toggleMic, toggleCamera,
+        stopAll: stopStreams, changeCamera, changeMic
+    } = useStreams(screenVideoRef, cameraVideoRef, setStatus);
+
+    const [webcamShape, setWebcamShape] = useState('circle');
+    const [webcamScale, setWebcamScale] = useState(0.40);
     const [activeBg, setActiveBg] = useState('none');
-    const [directoryHandle, setDirectoryHandle] = useState(null);
-    const [isStarting, setIsStarting] = useState(false);
-    const [layoutTemplate, setLayoutTemplate] = useState('pip-circle');
-    const [pipCorner, setPipCorner] = useState('br');
-    const [aspectRatio, setAspectRatio] = useState('16:9');
-    const [openPanel, setOpenPanel] = useState(null);
-    const [showTeleprompter, setShowTeleprompter] = useState(false);
-    const [prompterText, setPrompterText] = useState('');
-    const [prompterSpeed, setPrompterSpeed] = useState(3);
-    const [prompterScroll, setPrompterScroll] = useState(0);
-    const isStartingRef = useRef(false);
-    const pipPosRef = useRef({ corner: 'br', x: 0, y: 0 });
+    const [screenScale, setScreenScale] = useState(1.0);
+    const [recordingQuality, setRecordingQuality] = useState('1080p');
+    const [recordingFormat, setRecordingFormat] = useState(getDefaultFormat());
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const [toast, setToast] = useState(null);
+    const [highlightedFile, setHighlightedFile] = useState(null);
+    const [pendingRecording, setPendingRecording] = useState(null);
+    const [countdown, setCountdown] = useState(null);
+    const [elapsedTime, setElapsedTime] = useState(0);
+    const [cursorFxEnabled, setCursorFxEnabled] = useState(false);
+    const [webcamOnly, setWebcamOnly] = useState(false);
+    const [annotationEnabled, setAnnotationEnabled] = useState(false);
+    const [zoomEnabled, setZoomEnabled] = useState(false);
+    const [chatOpen, setChatOpen] = useState(false);
+    const [ytOpen, setYtOpen] = useState(false);
+    const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+    const [activeFilters, setActiveFilters] = useState([]);
+    const [showWelcome, setShowWelcome] = useState(false);
 
-    const { screenStream, audioStream, cameraStream, systemAudioStream, toggleScreen, toggleMic, toggleCamera, toggleSystemAudio, stopAll, screenDimensions } = useStreams(screenVideoRef, cameraVideoRef, () => {});
     const audioLevel = useAudioLevel(audioStream);
-    const { processedStream } = useAudioProcessor(audioStream, enhancedAudio);
+    const { drawCursorFx } = useCursorFx(canvasRef, cursorFxEnabled);
+    const annotation = useAnnotation(canvasRef, annotationEnabled);
+    const { applyZoom, restoreZoom } = useZoom(canvasRef, zoomEnabled);
+    const ai = useAI();
+    const youtube = useYouTube();
+    const timeline = useTimeline();
+    const overlays = useOverlays();
+    const [showTimeline, setShowTimeline] = useState(false);
 
-    const handleComplete = useCallback(async (blob, mimeType) => {
-        if (!blob) { setToast({ title: 'Recording Failed', message: 'No video captured', type: 'error' }); return; }
-        recordingStore.set(blob, mimeType);
-        const ext = '.webm';
-        const name = `recording-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)}${ext}`;
-        const blobUrl = URL.createObjectURL(blob);
-        try {
-            if (directoryHandle) {
-                const fileHandle = await directoryHandle.getFileHandle(name, { create: true });
-                const writable = await fileHandle.createWritable();
-                await writable.write(blob); await writable.close();
-                setToast({ title: 'Saved', message: `Saved to ${directoryHandle.name}/${name}`, type: 'success' });
-            } else {
-                const a = document.createElement('a'); a.href = blobUrl; a.download = name;
-                document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                setToast({ title: 'Saved', message: 'Check your downloads folder', type: 'success' });
-            }
-        } catch {
-            const a = document.createElement('a'); a.href = blobUrl; a.download = name;
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-            setToast({ title: 'Saved', message: 'Download triggered', type: 'success' });
+    const showToast = useCallback((title, message, type = 'info') => {
+        setToast({ title, message, type });
+        setTimeout(() => setToast(null), 4000);
+    }, []);
+
+    const {
+        directoryHandle, setDirectoryHandle,
+        isHandleAuthorized, setIsHandleAuthorized,
+        libraryFiles, thumbnailMap,
+        editingFileName, setEditingFileName,
+        newName, setNewName,
+        selectedVideoUrl, setSelectedVideoUrl,
+        connectFolder, resumeSync, syncLibrary,
+        playVideo, startRename, handleRename, deleteFile,
+        generateThumbnail, getThumbnailUrl
+    } = useFileSystem(showToast, setHighlightedFile);
+
+    const handleRecordingComplete = useCallback((blob, mimeType) => {
+        if (!blob) {
+            showToast('Recording Failed', 'No video data was captured.', 'error');
+            return;
         }
-    }, [directoryHandle]);
+        setPendingRecording({ blob, mimeType });
+    }, [showToast]);
 
-    const { isRecording, isPaused, startRecording, pauseRecording, resumeRecording, stopRecording } = useRecording({
-        screenStream, audioStream: processedStream || audioStream, cameraStream,
-        activeBg, screenScale: 1.0, canvasRef,
-        recordingQuality: recQuality,
-        bitrate: QUALITY_PRESETS[recQuality].bitrate,
-        useCanvas: true,
-        onComplete: handleComplete,
+    const {
+        isRecording, isPaused, startRecording: startMediaRecording, pauseRecording, resumeRecording, stopRecording, resetRecording
+    } = useRecording({
+        screenStream, audioStream, cameraStream,
+        activeBg, screenScale, canvasRef,
+        recordingQuality,
+        bitrate: QUALITY_PRESETS[recordingQuality].bitrate,
+        mimeType: EXPORT_FORMATS.find(f => f.id === recordingFormat)?.mimeType,
+        onComplete: handleRecordingComplete
     });
 
-    useEffect(() => { if (!isRecording) { setElapsedTime(0); return; } const iv = setInterval(() => setElapsedTime(t => t + 1), 1000); return () => clearInterval(iv); }, [isRecording]);
-    useEffect(() => () => { stopAll(); }, []);
-    useEffect(() => { if (!isRecording) return; const h = (e) => { e.preventDefault(); e.returnValue = ''; }; window.addEventListener('beforeunload', h); return () => window.removeEventListener('beforeunload', h); }, [isRecording]);
-
-    // Teleprompter auto-scroll
+    // Cleanup streams on unmount when not recording
     useEffect(() => {
-        if (!showTeleprompter || !isRecording) return;
-        const iv = setInterval(() => setPrompterScroll(s => s + prompterSpeed), 50);
-        return () => clearInterval(iv);
-    }, [showTeleprompter, isRecording, prompterSpeed]);
+        return () => { if (!isRecording) stopStreams(); };
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Canvas sizing
-    useEffect(() => {
-        const c = canvasRef.current; if (!c) return;
-        const ratio = ASPECT_RATIOS.find(r => r.id === aspectRatio) || ASPECT_RATIOS[0];
-        const q = QUALITY_PRESETS[recQuality];
-        let w = q.width || ratio.w; let h = q.height || ratio.h;
-        if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
-    }, [recQuality, screenDimensions, aspectRatio]);
+    // AI command handler
+    const handleAICommand = useCallback(async (input) => {
+        const command = await ai.sendMessage(input);
+        if (!command) return;
+        switch (command.action) {
+            case 'cursor_fx': setCursorFxEnabled(command.enabled); break;
+            case 'set_quality': if (['720p','1080p','1440p'].includes(command.quality)) setRecordingQuality(command.quality); break;
+            case 'set_format': { const f = EXPORT_FORMATS.find(fmt => fmt.id.includes(command.format)); if (f) setRecordingFormat(f.id); break; }
+            case 'annotate': setAnnotationEnabled(true); break;
+            case 'zoom': setZoomEnabled(true); break;
+            case 'start_recording': startMediaRecording(); break;
+            case 'stop_recording': stopRecording(); break;
+            case 'pause_recording': pauseRecording(); break;
+            case 'resume_recording': resumeRecording(); break;
+        }
+    }, [ai, startMediaRecording, stopRecording, pauseRecording, resumeRecording]);
 
-    useEffect(() => { pipPosRef.current.corner = pipCorner; }, [pipCorner]);
-
-    // Canvas render loop
-    useEffect(() => {
-        let running = true;
-        const loop = () => {
-            if (!running) return;
-            const c = canvasRef.current; if (!c) { requestAnimationFrame(loop); return; }
-            const ctx = c.getContext('2d', { alpha: false });
-            const tpl = layoutTemplate;
-
-            // Background
-            const bg = BG_PRESETS.find(b => b.id === activeBg);
-            if (bg && bg.color.startsWith('linear')) {
-                const grad = ctx.createLinearGradient(0, 0, c.width, c.height);
-                const colors = bg.color.match(/#[a-fA-F0-9]{6}/g) || ['#1a1a1a', '#2a2a2a'];
-                grad.addColorStop(0, colors[0]); grad.addColorStop(1, colors[1] || colors[0]);
-                ctx.fillStyle = grad;
-            } else { ctx.fillStyle = bg?.color || '#1a1a1a'; }
-            ctx.fillRect(0, 0, c.width, c.height);
-
-            const hasScreen = screenStream && screenVideoRef.current?.readyState >= 2 && tpl !== 'camera-only';
-            const hasCamera = cameraStream && cameraVideoRef.current?.readyState >= 2 && tpl !== 'screen-only';
-
-            if (tpl === 'screen-only' || tpl === 'camera-only') {
-                const v = tpl === 'screen-only' ? screenVideoRef.current : cameraVideoRef.current;
-                if (v?.readyState >= 2) drawFit(ctx, v, 0, 0, c.width, c.height);
-            } else if (tpl === 'side-by-side') {
-                const hw = c.width / 2;
-                if (hasScreen) drawFit(ctx, screenVideoRef.current, 0, 0, hw, c.height);
-                else { ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, 0, hw, c.height); }
-                if (hasCamera) drawFit(ctx, cameraVideoRef.current, hw, 0, hw, c.height);
-                else { ctx.fillStyle = '#1a1a1a'; ctx.fillRect(hw, 0, hw, c.height); }
-            } else if (tpl === 'stacked') {
-                const hh = c.height / 2;
-                if (hasScreen) drawFit(ctx, screenVideoRef.current, 0, 0, c.width, hh);
-                else { ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, 0, c.width, hh); }
-                if (hasCamera) drawFit(ctx, cameraVideoRef.current, 0, hh, c.width, hh);
-                else { ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, hh, c.width, hh); }
-            } else {
-                if (hasScreen) drawFit(ctx, screenVideoRef.current, 0, 0, c.width, c.height);
-                if (hasCamera) {
-                    const v = cameraVideoRef.current;
-                    const camW = c.width * 0.22;
-                    const camH = camW * (v.videoHeight / v.videoWidth);
-                    const pad = 16;
-                    const { x: cx, y: cy } = getPipPos(c.width, c.height, camW, camH, pad, pipCorner);
-                    pipPosRef.current.x = cx; pipPosRef.current.y = cy;
-                    ctx.save();
-                    if (tpl === 'pip-circle') {
-                        const radius = Math.max(camW, camH) / 2;
-                        ctx.beginPath(); ctx.arc(cx + camW / 2, cy + camH / 2, radius, 0, Math.PI * 2); ctx.clip();
-                    }
-                    drawFit(ctx, v, cx, cy, camW, camH);
-                    ctx.restore();
-                }
+    const handleSaveRecording = async (blob, fileName) => {
+        if (directoryHandle) {
+            try {
+                const fileHandle = await directoryHandle.getFileHandle(fileName, { create: true });
+                const writable = await fileHandle.createWritable();
+                await writable.write(blob);
+                await writable.close();
+                await syncLibrary(directoryHandle);
+                showToast(`Saved to ${directoryHandle.name}`, fileName, 'success');
+                setHighlightedFile(fileName);
+                generateThumbnail(blob, fileName, directoryHandle).then(() => syncLibrary(directoryHandle));
+                setTimeout(() => setHighlightedFile(null), 5000);
+            } catch {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = fileName; a.click();
+                URL.revokeObjectURL(url);
+                showToast('Direct save failed', 'Download triggered as fallback', 'error');
             }
-            requestAnimationFrame(loop);
-        };
-        loop(); return () => { running = false; };
-    }, [screenStream, cameraStream, layoutTemplate, pipCorner, activeBg]);
+        } else {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = fileName; a.click();
+            URL.revokeObjectURL(url);
+            showToast('Recording Saved', 'Check your downloads folder', 'success');
+        }
+        setPendingRecording(null);
+    };
 
-    // Keyboard
+    const webcamPos = useRef({ x: 20, y: 410 });
+    const isDragging = useRef(false);
+    const dragOffset = useRef({ x: 0, y: 0 });
+    const countdownTimerRef = useRef(null);
+    const elapsedTimerRef = useRef(null);
+
+    const handleStopAll = useCallback(() => {
+        if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+        setCountdown(null); setElapsedTime(0);
+        resetRecording(); stopStreams(); setActiveBg('none'); setScreenScale(1.0);
+    }, [resetRecording, stopStreams]);
+
     useEffect(() => {
-        const onKey = (e) => {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-            if (e.code === 'Space') { e.preventDefault(); if (isRecording) stopRecording(); else startFlow(); }
-        };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
+        screenVideoRef.current = document.createElement('video');
+        screenVideoRef.current.muted = true;
+        screenVideoRef.current.autoplay = true;
+        screenVideoRef.current.playsInline = true;
+        cameraVideoRef.current = document.createElement('video');
+        cameraVideoRef.current.muted = true;
+        cameraVideoRef.current.autoplay = true;
+        cameraVideoRef.current.playsInline = true;
+        return () => handleStopAll();
+    }, []);
+
+    // Guard against accidental page close during recording
+    useEffect(() => {
+        if (!isRecording) return;
+        const handler = (e) => { e.preventDefault(); e.returnValue = ''; };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
     }, [isRecording]);
 
-    const startFlow = useCallback(async () => {
-        if (isStartingRef.current || isRecording) return;
-        isStartingRef.current = true; setIsStarting(true);
-        try {
-            const needsCam = ['pip-circle', 'pip-rect', 'side-by-side', 'stacked', 'camera-only'].includes(layoutTemplate);
-            const needsScreen = layoutTemplate !== 'camera-only';
-            let gotScreen = true, gotCam = true;
-            if (needsScreen && !screenStream) gotScreen = !!(await toggleScreen());
-            if (needsCam && !cameraStream) { const s = await toggleCamera(); gotCam = !!s; }
-            if (!gotScreen && !gotCam) { setIsStarting(false); isStartingRef.current = false; return; }
-            if (!audioStream) await toggleMic().catch(() => {});
-            setTimeout(() => { startRecording(); setIsStarting(false); isStartingRef.current = false; }, 600);
-        } catch { setIsStarting(false); isStartingRef.current = false; }
-    }, [layoutTemplate, screenStream, cameraStream, audioStream, isRecording, toggleScreen, toggleCamera, toggleMic, startRecording]);
+    useEffect(() => {
+        if (isRecording && !isPaused) {
+            elapsedTimerRef.current = setInterval(() => setElapsedTime(prev => prev + 1), 1000);
+        } else {
+            if (elapsedTimerRef.current) { clearInterval(elapsedTimerRef.current); elapsedTimerRef.current = null; }
+        }
+        return () => { if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current); };
+    }, [isRecording, isPaused]);
 
-    const fmtTime = (s) => `${Math.floor(s/60).toString().padStart(2, '0')}:${(s%60).toString().padStart(2, '0')}`;
+    useEffect(() => { if (!isRecording) setElapsedTime(0); }, [isRecording]);
 
-    const selectFolder = useCallback(async () => {
-        try { const handle = await window.showDirectoryPicker(); setDirectoryHandle(handle);
-            import('../utils/StorageManager').then(m => m.storageManager).then(sm => sm.setSetting('workspace_handle', handle));
-            setToast({ title: 'Folder Selected', message: `Saves to: ${handle.name}`, type: 'success' });
-        } catch {}
-    }, []);
+    const formatTime = (s) => `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
+
+    const [currentDimensions, setCurrentDimensions] = useState({ width: 0, height: 0 });
 
     useEffect(() => {
-        import('../utils/StorageManager').then(m => m.storageManager).then(sm => {
-            sm.getSetting('workspace_handle').then(h => { if (h) setDirectoryHandle(h); }).catch(() => {});
-        }).catch(() => {});
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const quality = QUALITY_PRESETS[recordingQuality];
+        let tw = quality.width, th = quality.height;
+        if (!tw || !th) {
+            if (screenStream) { tw = screenDimensions.width; th = screenDimensions.height; }
+            else if (cameraStream) { tw = cameraDimensions.width; th = cameraDimensions.height; }
+            else { tw = 1920; th = 1080; }
+        }
+        const isCanvasNeeded = cameraStream || activeBg !== 'none' || screenScale < 1.0;
+        if (!isCanvasNeeded && tw > 1920) { th = 1920 * (th / tw); tw = 1920; }
+        if (tw > 0 && th > 0 && (canvas.width !== tw || canvas.height !== th)) {
+            canvas.width = tw; canvas.height = th; setCurrentDimensions({ width: tw, height: th });
+        }
+    }, [screenStream, cameraStream, activeBg, screenScale, recordingQuality, screenDimensions, cameraDimensions]);
+
+    const renderFrame = useCallback(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d', { alpha: false });
+        const isCanvasNeeded = cameraStream || activeBg !== 'none' || screenScale < 1.0 || (recordingQuality && recordingQuality !== 'native') || webcamOnly || annotationEnabled || zoomEnabled;
+        if (!isCanvasNeeded) return;
+
+        const bubbleSize = canvas.height * webcamScale;
+        const { x, y } = webcamPos.current;
+        applyZoom(ctx, canvas.width, canvas.height);
+
+        const preset = BACKGROUND_PRESETS.find(p => p.id === activeBg);
+        if (preset && preset.colors) {
+            const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            preset.colors.forEach((c, i) => grad.addColorStop(i / (preset.colors.length - 1), c));
+            ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        } else {
+            ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        if (webcamOnly && cameraStream && cameraVideoRef.current.readyState >= 2) {
+            const v = cameraVideoRef.current;
+            const a = v.videoWidth / v.videoHeight, ca = canvas.width / canvas.height;
+            let dw, dh;
+            if (a > ca) { dh = canvas.height; dw = canvas.height * a; } else { dw = canvas.width; dh = canvas.width / a; }
+            ctx.drawImage(v, (canvas.width - dw) / 2, (canvas.height - dh) / 2, dw, dh);
+        } else {
+            if (screenStream && screenVideoRef.current.readyState >= 2) {
+                const v = screenVideoRef.current;
+                const a = v.videoWidth / v.videoHeight, ca = canvas.width / canvas.height;
+                let dw, dh;
+                if (a > ca) { dw = canvas.width; dh = canvas.width / a; } else { dh = canvas.height; dw = canvas.height * a; }
+                const sw = dw * screenScale, sh = dh * screenScale;
+                const sx = (canvas.width - sw) / 2, sy = (canvas.height - sh) / 2;
+                if (screenScale < 1.0) { ctx.save(); ctx.beginPath(); ctx.roundRect(sx, sy, sw, sh, 16); ctx.clip(); ctx.drawImage(v, sx, sy, sw, sh); ctx.restore(); }
+                else ctx.drawImage(v, sx, sy, sw, sh);
+            }
+            if (cameraStream && cameraVideoRef.current.readyState >= 2) {
+                const v = cameraVideoRef.current;
+                const a = v.videoWidth / v.videoHeight;
+                let dw, dh, dx, dy;
+                if (a > 1) { dw = bubbleSize * a; dh = bubbleSize; dx = x - (dw - bubbleSize) / 2; dy = y; }
+                else { dw = bubbleSize; dh = bubbleSize / a; dx = x; dy = y - (dh - bubbleSize) / 2; }
+                if (webcamShape !== 'square') {
+                    ctx.save(); ctx.beginPath();
+                    if (webcamShape === 'circle') ctx.arc(x + bubbleSize / 2, y + bubbleSize / 2, bubbleSize / 2, 0, Math.PI * 2);
+                    else ctx.roundRect(x, y, bubbleSize, bubbleSize, 32);
+                    ctx.clip(); ctx.drawImage(v, dx, dy, dw, dh); ctx.restore();
+                } else ctx.drawImage(v, dx, dy, dw, dh);
+            }
+        }
+        restoreZoom(ctx);
+        drawCursorFx(ctx, canvas.width, canvas.height);
+        annotation.drawAnnotations(ctx);
+        overlays.drawOverlays(ctx, 0);
+        applyFilters(ctx, canvas, activeFilters);
+    }, [cameraStream, screenStream, activeBg, webcamScale, screenScale, webcamShape, recordingQuality, webcamOnly, annotationEnabled, zoomEnabled, drawCursorFx, annotation, applyZoom, restoreZoom, activeFilters, overlays]);
+
+    const launchLoop = useCallback(() => {
+        const isCanvasNeeded = cameraStream || activeBg !== 'none' || screenScale < 1.0 || recordingQuality !== 'native' || webcamOnly || cursorFxEnabled || annotationEnabled || zoomEnabled;
+        if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null; }
+        if (isCanvasNeeded) {
+            workerRef.current = new Worker(new URL('../workers/heartbeat.worker.js', import.meta.url), { type: 'module' });
+            workerRef.current.onmessage = (e) => { if (e.data.action === 'tick') renderFrame(); };
+            workerRef.current.postMessage({ action: 'setFps', fps: 30 });
+            workerRef.current.postMessage({ action: 'start' });
+        }
+    }, [cameraStream, activeBg, screenScale, recordingQuality, webcamOnly, cursorFxEnabled, annotationEnabled, zoomEnabled, renderFrame]);
+
+    useEffect(() => { launchLoop(); return () => { if (workerRef.current) workerRef.current.terminate(); }; }, [launchLoop]);
+
+    const getCanvasMousePos = useCallback((e) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return { x: 0, y: 0 };
+        const rect = canvas.getBoundingClientRect();
+        return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) };
     }, []);
 
-    const togglePanel = (panel) => setOpenPanel(openPanel === panel ? null : panel);
+    const handleMouseDown = useCallback((e) => {
+        if (annotationEnabled) { annotation.handleMouseDown(e); return; }
+        const pos = getCanvasMousePos(e);
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const bubbleSize = canvas.height * webcamScale;
+        const { x, y } = webcamPos.current;
+        if (pos.x >= x && pos.x <= x + bubbleSize && pos.y >= y && pos.y <= y + bubbleSize) {
+            isDragging.current = true; dragOffset.current = { x: pos.x - x, y: pos.y - y };
+        }
+    }, [getCanvasMousePos, webcamScale, annotationEnabled, annotation]);
+
+    const handleMouseMove = useCallback((e) => {
+        if (annotationEnabled) { annotation.handleMouseMove(e); return; }
+        if (!isDragging.current) return;
+        const pos = getCanvasMousePos(e);
+        webcamPos.current = { x: pos.x - dragOffset.current.x, y: pos.y - dragOffset.current.y };
+    }, [getCanvasMousePos, annotationEnabled, annotation]);
+
+    const handleMouseUp = useCallback((e) => {
+        if (annotationEnabled) { annotation.handleMouseUp(e); return; }
+        isDragging.current = false;
+    }, [annotationEnabled, annotation]);
+
+    useEffect(() => {
+        const loadSavedState = async () => {
+            const savedHandle = await storageManager.getSetting('workspace_handle');
+            if (savedHandle) {
+                setDirectoryHandle(savedHandle);
+                const state = await savedHandle.queryPermission({ mode: 'readwrite' });
+                setIsHandleAuthorized(state === 'granted');
+                if (state !== 'granted') {
+                    setShowWelcome(true);
+                }
+            } else {
+                setShowWelcome(true);
+            }
+        };
+        loadSavedState();
+    }, [setDirectoryHandle, setIsHandleAuthorized]);
+
+    useEffect(() => { if (isHistoryOpen && directoryHandle) syncLibrary(directoryHandle); }, [isHistoryOpen, directoryHandle, syncLibrary]);
+
+    const startRecording = useCallback(() => {
+        if (isRecording || countdown !== null) return;
+        setCountdown(3);
+        countdownTimerRef.current = setInterval(() => {
+            setCountdown(prev => {
+                if (prev <= 1) {
+                    if (countdownTimerRef.current) { clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; }
+                    startMediaRecording(); return null;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+    }, [isRecording, countdown, startMediaRecording]);
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.code === 'Space') { e.preventDefault(); if (isRecording) stopRecording(); else if (countdown === null) startRecording(); }
+            else if (e.code === 'KeyP' && isRecording) { e.preventDefault(); if (isPaused) resumeRecording(); else pauseRecording(); }
+            else if (e.code === 'Escape' && countdown !== null) { e.preventDefault(); if (countdownTimerRef.current) { clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; } setCountdown(null); }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isRecording, isPaused, countdown, startRecording, stopRecording, pauseRecording, resumeRecording]);
 
     return (
-        <div className="recorder-page">
-            {/* Main preview area */}
-            <div className="recorder-main">
-                <canvas ref={canvasRef} className="recorder-canvas" />
+        <div className="recorder-container">
+            <header className="header-section" style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ visibility: 'hidden' }}>Spacer</div>
+                <div style={{ textAlign: 'center' }}>
+                    <h1>BioDockify Studio</h1>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Record your screen with webcam overlay</p>
+                </div>
+                <button className="btn btn-outline" onClick={() => setIsHistoryOpen(!isHistoryOpen)}>
+                    History {libraryFiles.length > 0 && `(${libraryFiles.length})`}
+                </button>
+            </header>
 
-                {/* Quality badge top-left */}
-                <div className="quality-badge">{recQuality}</div>
+            <PreviewStage canvasRef={canvasRef} screenVideoRef={screenVideoRef} cameraVideoRef={cameraVideoRef}
+                cameraStream={cameraStream} screenStream={screenStream} activeBg={activeBg} screenScale={screenScale}
+                isRecording={isRecording} status={status} countdown={countdown} recordingQuality={recordingQuality}
+                currentDimensions={currentDimensions} handleMouseDown={handleMouseDown} handleMouseMove={handleMouseMove}
+                handleMouseUp={handleMouseUp} elapsedTime={formatTime(elapsedTime)} />
 
-                {/* Center placeholder when no sources active */}
-                {!screenStream && !cameraStream && !isRecording && (
-                    <div className="recorder-placeholder">
-                        <div className="recorder-sources">
-                            <button className={`recorder-source-card ${screenStream ? 'active' : ''}`}
-                                onClick={async () => {
-                                    const stream = await toggleScreen();
-                                    if (stream) { setToast({ title: 'Screen Active', message: 'Screen sharing enabled', type: 'success' }); }
-                                }}>
-                                <span className="source-icon">️</span>
-                                <span className="source-label">Screen</span>
-                                <span className={`source-status ${screenStream ? 'on' : 'off'}`}>
-                                    {screenStream ? ' Active' : '🔒 Click to enable'}
-                                </span>
-                            </button>
-                            <button className={`recorder-source-card ${cameraStream ? 'active' : ''}`}
-                                onClick={async () => {
-                                    const stream = await toggleCamera();
-                                    if (stream) { setToast({ title: 'Camera Active', message: 'Camera enabled', type: 'success' }); }
-                                }}>
-                                <span className="source-icon">📷</span>
-                                <span className="source-label">Camera</span>
-                                <span className={`source-status ${cameraStream ? 'on' : 'off'}`}>
-                                    {cameraStream ? '🔓 Active' : ' Click to enable'}
-                                </span>
-                            </button>
-                            <button className={`recorder-source-card ${audioStream ? 'active' : ''}`}
-                                onClick={async () => {
-                                    const stream = await toggleMic();
-                                    if (stream) { setToast({ title: 'Mic Active', message: 'Microphone enabled', type: 'success' }); }
-                                }}>
-                                <span className="source-icon"></span>
-                                <span className="source-label">Microphone</span>
-                                <span className={`source-status ${audioStream ? 'on' : 'off'}`}>
-                                    {audioStream ? (
-                                        <span className="mic-test-bar">
-                                            <span className="mic-test-fill" style={{ width: `${Math.min(audioLevel * 100, 100)}%` }} />
-                                        </span>
-                                    ) : '🔒 Click to enable'}
-                                </span>
-                            </button>
-                        </div>
-                        {/* Template selector */}
-                        <div className="recorder-templates">
-                            <span className="template-label">Recording Layout</span>
-                            <div className="template-options">
-                                {RECORDING_TEMPLATES.map(t => (
-                                    <button key={t.id}
-                                        className={`template-btn ${layoutTemplate === t.id ? 'selected' : ''}`}
-                                        onClick={() => setLayoutTemplate(t.id)}
-                                        title={t.desc}>
-                                        <span className="template-icon">{t.icon}</span>
-                                        <span className="template-name">{t.label}</span>
-                                    </button>
-                                ))}
-                            </div>
-                            {(layoutTemplate === 'pip-circle' || layoutTemplate === 'pip-rect') && (
-                                <div className="pip-corners">
-                                    <span className="template-label">Webcam Position</span>
-                                    <div className="corner-options">
-                                        {[
-                                            { id: 'tl', label: '↖ Top Left' },
-                                            { id: 'tr', label: '↗ Top Right' },
-                                            { id: 'bl', label: '↙ Bot Left' },
-                                            { id: 'br', label: '↘ Bot Right' },
-                                        ].map(c => (
-                                            <button key={c.id}
-                                                className={`corner-btn ${pipCorner === c.id ? 'selected' : ''}`}
-                                                onClick={() => setPipCorner(c.id)}>
-                                                {c.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                        <button className="recorder-start-btn" onClick={startFlow} disabled={isStarting || (!screenStream && !cameraStream)}>
-                            {isStarting ? 'Opening Screen Picker...' : (screenStream || cameraStream) ? 'Start Recording' : 'Enable Screen or Camera to start'}
-                        </button>
-                        <p className="recorder-hint">or press <kbd>Space</kbd></p>
-                        {directoryHandle && (
-                            <p className="recorder-folder-info">
-                                📁 Saves to: {directoryHandle.name}
-                            </p>
-                        )}
-                        <button className="recorder-folder-btn" onClick={selectFolder}>
-                            📁 {directoryHandle ? `Change Folder (${directoryHandle.name})` : 'Select Save Folder'}
-                        </button>
-                    </div>
-                )}
+            {annotationEnabled && (
+                <AnnotationToolbar tool={annotation.tool} setTool={annotation.setTool} color={annotation.color}
+                    setColor={annotation.setColor} strokeWidth={annotation.strokeWidth} setStrokeWidth={annotation.setStrokeWidth}
+                    undo={annotation.undo} redo={annotation.redo} clearAnnotations={annotation.clearAnnotations}
+                    canUndo={annotation.hasAnnotations} canRedo={false} />
+            )}
 
-                {/* Camera preview when camera only */}
-                {!screenStream && cameraStream && !isRecording && (
-                    <video ref={cameraVideoRef} className="recorder-cam-full" autoPlay muted playsInline />
-                )}
+            <ControlBar screenStream={screenStream} cameraStream={cameraStream} audioStream={audioStream}
+                activeBg={activeBg} setActiveBg={setActiveBg} isRecording={isRecording}
+                webcamShape={webcamShape} setWebcamShape={setWebcamShape} webcamScale={webcamScale} setWebcamScale={setWebcamScale}
+                screenScale={screenScale} setScreenScale={setScreenScale} toggleScreen={toggleScreen} toggleCamera={toggleCamera}
+                toggleMic={toggleMic} recordingQuality={recordingQuality} setRecordingQuality={setRecordingQuality}
+                qualityPresets={QUALITY_PRESETS} recordingFormat={recordingFormat} setRecordingFormat={setRecordingFormat}
+                startRecording={startRecording} pauseRecording={pauseRecording} resumeRecording={resumeRecording}
+                stopRecording={stopRecording} isPaused={isPaused} handleStopAll={handleStopAll}
+                changeCamera={changeCamera} changeMic={changeMic} audioLevel={audioLevel}
+                cursorFxEnabled={cursorFxEnabled} setCursorFxEnabled={setCursorFxEnabled}
+                webcamOnly={webcamOnly} setWebcamOnly={setWebcamOnly}
+                annotationEnabled={annotationEnabled} setAnnotationEnabled={setAnnotationEnabled}
+                zoomEnabled={zoomEnabled} setZoomEnabled={setZoomEnabled}
+                chatOpen={chatOpen} setChatOpen={setChatOpen}
+                filterPanelOpen={filterPanelOpen} setFilterPanelOpen={setFilterPanelOpen}
+                sourceType={sourceType} setSourceType={setSourceType}
+                toggleSystemAudio={toggleSystemAudio} systemAudioStream={systemAudioStream} />
 
-                {/* Teleprompter overlay */}
-                {showTeleprompter && isRecording && (
-                    <div className="teleprompter-overlay" style={{ transform: `translateY(-${prompterScroll}px)` }}>
-                        <p>{prompterText || 'Type your script in Settings...'}</p>
-                    </div>
-                )}
-
-                {/* Recording indicator */}
-                {isRecording && (
-                    <div className="rec-indicator">
-                        <span className="rec-dot" />
-                        <span className="rec-timer">{fmtTime(elapsedTime)}</span>
-                    </div>
-                )}
+            {/* Timeline toggle */}
+            <div style={{ display: 'flex', justifyContent: 'center', margin: '1rem 0' }}>
+                <button className={`btn-pill ${showTimeline ? 'active' : ''}`}
+                    onClick={() => setShowTimeline(!showTimeline)}>
+                    Timeline Editor {showTimeline ? '(Hide)' : '(Show)'}
+                </button>
             </div>
-            {/* recorder-main closes ^ */}
 
-            {/* Settings panel - bottom drawer style */}
-            {openPanel && (
-                <div className="settings-panel-overlay" onClick={() => setOpenPanel(null)}>
-                    <div className="settings-drawer" onClick={e => e.stopPropagation()}>
-                        <div className="drawer-handle" />
-                        <div className="drawer-header">
-                            <h3>{openPanel === 'ratio' ? 'Aspect Ratio' : openPanel === 'background' ? 'Background' : openPanel === 'layout' ? 'Layout' : openPanel === 'prompter' ? 'Teleprompter' : 'Settings'}</h3>
-                            <button className="drawer-close" onClick={() => setOpenPanel(null)}>×</button>
-                        </div>
-                        {openPanel === 'ratio' && (
-                            <div className="drawer-options">
-                                {ASPECT_RATIOS.map(r => (
-                                    <button key={r.id} className={`panel-option ${aspectRatio === r.id ? 'selected' : ''}`}
-                                        onClick={() => { setAspectRatio(r.id); setOpenPanel(null); }}>{r.label}</button>
-                                ))}
-                            </div>
-                        )}
-                        {openPanel === 'background' && (
-                            <div className="drawer-options">
-                                {BG_PRESETS.map(b => (
-                                    <button key={b.id} className={`panel-option bg-option ${activeBg === b.id ? 'selected' : ''}`}
-                                        onClick={() => { setActiveBg(b.id); setOpenPanel(null); }}
-                                        style={{ background: b.color }}>{b.label}</button>
-                                ))}
-                            </div>
-                        )}
-                        {openPanel === 'layout' && (
-                            <div className="drawer-options">
-                                {RECORDING_TEMPLATES.map(t => (
-                                    <button key={t.id} className={`panel-option ${layoutTemplate === t.id ? 'selected' : ''}`}
-                                        onClick={() => setLayoutTemplate(t.id)} title={t.desc}>
-                                        <span>{t.icon}</span> {t.label}
-                                    </button>
-                                ))}
-                                {(layoutTemplate === 'pip-circle' || layoutTemplate === 'pip-rect') && (
-                                    <div className="drawer-options" style={{ width: '100%', marginTop: '0.5rem' }}>
-                                        {[{ id: 'tl', label: '↖ Top Left' }, { id: 'tr', label: '↗ Top Right' },
-                                          { id: 'bl', label: '↙ Bot Left' }, { id: 'br', label: '↘ Bot Right' }].map(c => (
-                                            <button key={c.id} className={`panel-option ${pipCorner === c.id ? 'selected' : ''}`}
-                                                onClick={() => setPipCorner(c.id)}>{c.label}</button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                        {openPanel === 'prompter' && (
-                            <div className="drawer-options" style={{ flexDirection: 'column' }}>
-                                <textarea className="prompter-textarea" value={prompterText}
-                                    onChange={e => setPrompterText(e.target.value)}
-                                    placeholder="Type your script here..." />
-                                <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
-                                    <label style={{ flex: 1, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                                        Speed: <input type="range" min="1" max="10" value={prompterSpeed}
-                                            onChange={e => setPrompterSpeed(Number(e.target.value))}
-                                            style={{ width: '100%', accentColor: 'var(--primary)' }} />
-                                    </label>
-                                    <button className={`panel-option ${showTeleprompter ? 'selected' : ''}`}
-                                        onClick={() => setShowTeleprompter(!showTeleprompter)}>
-                                        {showTeleprompter ? 'Hide' : 'Show'}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                        {openPanel === 'settings' && (
-                            <div className="drawer-options" style={{ flexDirection: 'column', gap: '0.8rem' }}>
-                                <div className="setting-row">
-                                    <label>Quality</label>
-                                    <select value={recQuality} onChange={e => setRecQuality(e.target.value)}>
-                                        <option value="720p">720p</option><option value="1080p">1080p</option>
-                                        <option value="1440p">1440p</option><option value="native">Native</option>
-                                    </select>
-                                </div>
-                                <div className="setting-row">
-                                    <label>Enhanced Audio</label>
-                                    <button className={`panel-option ${enhancedAudio ? 'selected' : ''}`}
-                                        onClick={() => setEnhancedAudio(!enhancedAudio)}>{enhancedAudio ? 'ON' : 'OFF'}</button>
-                                </div>
-                                <div className="setting-row">
-                                    <label>Save Folder</label>
-                                    <button className="panel-option" onClick={selectFolder}>
-                                        {directoryHandle ? directoryHandle.name : 'Select'}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
+            {showTimeline && (
+                <Timeline
+                    clips={timeline.clips}
+                    tracks={timeline.tracks}
+                    currentTime={timeline.currentTime}
+                    duration={timeline.duration}
+                    selectedClipId={timeline.selectedClipId}
+                    isPlaying={timeline.isPlaying}
+                    zoom={timeline.zoom}
+                    onSelectClip={timeline.setSelectedClipId}
+                    onSeek={timeline.seek}
+                    onSplit={timeline.splitAtPlayhead}
+                    onDelete={timeline.deleteSelected}
+                    onMove={timeline.moveClip}
+                    onResize={timeline.resizeClip}
+                    onPlay={timeline.play}
+                    onPause={timeline.pause}
+                    onStop={timeline.stop}
+                    onZoomChange={timeline.setZoom}
+                />
             )}
 
-            {/* Toolbar - compact glass panel like editor transport */}
-            {!isRecording && (
-            <div className="recorder-toolbar">
-                <div className="toolbar-row">
-                    <div className="toolbar-group">
-                        <button className={`toolbar-btn ${cameraStream ? 'active' : ''}`} onClick={async () => { await toggleCamera(); }}>
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                            <span>{cameraStream ? 'Cam On' : 'Cam'}</span>
-                        </button>
-                        <button className={`toolbar-btn ${audioStream ? 'active' : ''}`} onClick={async () => { await toggleMic(); }}>
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/></svg>
-                            <span>{audioStream ? 'Mic On' : 'Mic'}</span>
-                        </button>
-                        <button className={`toolbar-btn ${screenStream ? 'active' : ''}`} onClick={async () => { await toggleScreen(); }}>
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/></svg>
-                            <span>{screenStream ? 'Screen' : 'Screen'}</span>
-                        </button>
-                        <button className={`toolbar-btn ${systemAudioStream ? 'active' : ''}`} onClick={toggleSystemAudio}>
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                            <span>Sys Audio</span>
-                        </button>
-                    </div>
-                    <div className="toolbar-divider" />
-                    <div className="toolbar-group">
-                        <button className={`toolbar-btn ${openPanel === 'ratio' ? 'active' : ''}`} onClick={() => togglePanel('ratio')}>
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
-                            <span>Ratio</span>
-                        </button>
-                        <button className={`toolbar-btn ${openPanel === 'background' ? 'active' : ''}`} onClick={() => togglePanel('background')}>
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-                            <span>BG</span>
-                        </button>
-                        <button className={`toolbar-btn ${openPanel === 'layout' ? 'active' : ''}`} onClick={() => togglePanel('layout')}>
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                            <span>Layout</span>
-                        </button>
-                        <button className={`toolbar-btn ${openPanel === 'prompter' ? 'active' : ''}`} onClick={() => togglePanel('prompter')}>
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="8" y1="2" x2="8" y2="22"/><line x1="16" y1="2" x2="16" y2="22"/><line x1="2" y1="8" x2="22" y2="8"/><line x1="2" y1="16" x2="22" y2="16"/></svg>
-                            <span>Prompter</span>
-                        </button>
-                        <button className={`toolbar-btn ${openPanel === 'settings' ? 'active' : ''}`} onClick={() => togglePanel('settings')}>
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4"/></svg>
-                            <span>Settings</span>
-                        </button>
-                        <button className="toolbar-btn" onClick={selectFolder}>
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-                            <span>{directoryHandle ? directoryHandle.name : 'Folder'}</span>
-                        </button>
-                    </div>
-                    <div className="toolbar-divider" />
-                    <div className="toolbar-group">
-                        <button className="toolbar-btn toolbar-record-btn" onClick={startFlow} disabled={isStarting}>
-                            <span className="record-dot" />
-                            <span>Record</span>
-                        </button>
-                        <button className={`toolbar-btn ${layoutTemplate.startsWith('pip') ? 'active' : ''}`}
-                            onClick={() => { setLayoutTemplate(layoutTemplate.startsWith('pip') ? 'screen-only' : 'pip-circle'); }}>
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="2"/><rect x="13" y="13" width="9" height="9" rx="1"/></svg>
-                            <span>PIP</span>
-                        </button>
-                    </div>
-                </div>
+            <div className="mode-info">
+                <div className="status-dot" style={{ background: cameraStream ? 'var(--primary)' : 'var(--success)' }}></div>
+                <span>Current Mode: {cameraStream ? 'Optimized Canvas' : 'Direct Hardware'}</span>
+                <span style={{ marginLeft: '1rem', opacity: 0.5, fontSize: '0.7rem' }}>Space: record/stop | P: pause | Esc: cancel</span>
             </div>
-            )}
 
-            {/* Recording bar */}
-            {isRecording && (
-                <div className="recorder-toolbar" style={{ gap: '0.75rem' }}>
-                    <span className="rec-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--danger)', animation: 'rec-pulse 1.5s infinite' }} />
-                    <span style={{ fontFamily: 'monospace', fontSize: '0.9rem', fontWeight: 700, color: 'var(--danger)' }}>{fmtTime(elapsedTime)}</span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>· {recQuality} · ~{Math.round(elapsedTime * QUALITY_PRESETS[recQuality].bitrate / 8000000)} MB</span>
-                    <div className="toolbar-divider" />
-                    {isPaused ? (
-                        <button className="toolbar-btn" onClick={resumeRecording} style={{ color: 'var(--success)', borderColor: 'var(--success)' }}>Resume</button>
-                    ) : (
-                        <button className="toolbar-btn" onClick={pauseRecording}>Pause</button>
-                    )}
-                    <button className="toolbar-btn" onClick={stopRecording} style={{ color: 'var(--danger)', fontWeight: 700 }}>Stop</button>
-                    <div className="toolbar-divider" />
-                    <button className={`toolbar-btn ${cameraStream ? 'active' : ''}`} onClick={async () => { await toggleCamera(); }}>
-                        {cameraStream ? 'Cam ON' : 'Cam OFF'}
-                    </button>
-                    <button className={`toolbar-btn ${audioStream ? 'active' : ''}`} onClick={async () => { await toggleMic(); }}>
-                        {audioStream ? 'Mic ON' : 'Mic OFF'}
-                    </button>
-                </div>
-            )}
+            <footer style={{ marginTop: 'auto', paddingTop: '4rem', color: 'var(--text-muted)', fontSize: '0.75rem', width: '100%', maxWidth: '600px', textAlign: 'center', lineHeight: '1.5' }}>
+                <p>BioDockify Studio &mdash; Free &amp; Open Source</p>
+            </footer>
 
+            <HistorySidebar isHistoryOpen={isHistoryOpen} setIsHistoryOpen={setIsHistoryOpen}
+                directoryHandle={directoryHandle} isHandleAuthorized={isHandleAuthorized}
+                connectFolder={connectFolder} resumeSync={resumeSync} libraryFiles={libraryFiles}
+                thumbnailMap={thumbnailMap} getThumbnailUrl={getThumbnailUrl} highlightedFile={highlightedFile}
+                playVideo={playVideo} editingFileName={editingFileName} newName={newName} setNewName={setNewName}
+                handleRename={handleRename} setEditingFileName={setEditingFileName} startRename={startRename} deleteFile={deleteFile} />
+
+            <VideoPlayerModal url={selectedVideoUrl} onClose={() => setSelectedVideoUrl(null)} />
             <Toast toast={toast} onClose={() => setToast(null)} />
+
+            <SaveRecordingModal blob={pendingRecording?.blob} mimeType={pendingRecording?.mimeType}
+                onSave={handleSaveRecording} onDiscard={() => setPendingRecording(null)}
+                onYouTube={() => setYtOpen(true)} />
+
+            <YouTubeUploadModal isOpen={ytOpen} onClose={() => setYtOpen(false)}
+                onUpload={(metadata) => youtube.uploadVideo(pendingRecording?.blob, metadata)}
+                isAuthenticated={youtube.isAuthenticated} channelName={youtube.channelName}
+                clientId={youtube.clientId} onSetClientId={youtube.setClientId}
+                onAuthenticate={youtube.authenticate} onDisconnect={youtube.disconnect}
+                isUploading={youtube.isUploading} uploadProgress={youtube.uploadProgress} />
+
+            <FilterPanel isOpen={filterPanelOpen} onClose={() => setFilterPanelOpen(false)}
+                activeFilters={activeFilters} setActiveFilters={setActiveFilters} />
+
+            <ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)}
+                messages={ai.messages} isProcessing={ai.isProcessing} onSend={handleAICommand}
+                onClear={ai.clearMessages} apiKey={ai.apiKey} onApiKeyChange={ai.setApiKey}
+                ollamaConnected={ai.ollamaConnected} ollamaModel={ai.ollamaModel}
+                ollamaModels={ai.ollamaModels} onCheckOllama={ai.checkOllama} />
+
+            <WelcomeModal
+                isOpen={showWelcome}
+                onFolderSelected={async (handle) => {
+                    setDirectoryHandle(handle);
+                    const perm = await handle.requestPermission({ mode: 'readwrite' });
+                    setIsHandleAuthorized(perm === 'granted');
+                    await storageManager.setSetting('workspace_handle', handle);
+                    setShowWelcome(false);
+                }}
+                onSkip={() => setShowWelcome(false)}
+            />
         </div>
     );
 };
