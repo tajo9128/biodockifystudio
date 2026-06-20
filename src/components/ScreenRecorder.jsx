@@ -165,12 +165,10 @@ const ScreenRecorder = () => {
         setIsStarting(true);
 
         try {
-            // If no screen stream, open screen picker
-            if (!screenStream) {
-                await toggleScreen();
-            }
-            // If user cancelled screen picker, stop
-            if (!screenStream && !cameraStream) {
+            // Open screen picker
+            const newScreenStream = await toggleScreen();
+            // Check if user picked a screen or cancelled
+            if (!newScreenStream && !cameraStream) {
                 setIsStarting(false);
                 isStartingRef.current = false;
                 return;
@@ -179,19 +177,32 @@ const ScreenRecorder = () => {
             if (!audioStream) {
                 await toggleMic().catch(() => {});
             }
-            // Start recording
+            // Start recording after stream settles
             setTimeout(() => {
                 startRecording();
                 setIsStarting(false);
                 isStartingRef.current = false;
-            }, 300);
+            }, 500);
         } catch {
             setIsStarting(false);
             isStartingRef.current = false;
         }
-    }, [screenStream, audioStream, cameraStream, isRecording, toggleScreen, toggleMic, startRecording]);
+    }, [cameraStream, audioStream, isRecording, toggleScreen, toggleMic, startRecording]);
 
     const fmtTime = (s) => `${Math.floor(s/60).toString().padStart(2, '0')}:${(s%60).toString().padStart(2, '0')}`;
+
+    // Select workspace folder
+    const selectFolder = useCallback(async () => {
+        try {
+            const handle = await window.showDirectoryPicker();
+            setDirectoryHandle(handle);
+            import('../utils/StorageManager').then(m => m.storageManager)
+                .then(sm => sm.setSetting('workspace_handle', handle));
+            setToast({ title: 'Folder Selected', message: `Saves to: ${handle.name}`, type: 'success' });
+        } catch {
+            // User cancelled
+        }
+    }, []);
 
     // Try restore folder
     useEffect(() => {
@@ -210,10 +221,22 @@ const ScreenRecorder = () => {
                         <div className="recorder-start-icon">🎬</div>
                         <h2>Start Recording Your Screen</h2>
                         <p>Record screen, webcam, and audio — auto-saves on stop</p>
+                        {directoryHandle && (
+                            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                                📁 Saves to: {directoryHandle.name}
+                            </p>
+                        )}
                         <button className="recorder-start-btn" onClick={startFlow} disabled={isStarting}>
                             {isStarting ? 'Opening Screen Picker...' : 'Start Recording'}
                         </button>
                         <p className="recorder-hint">or press <kbd>Space</kbd></p>
+                    </div>
+                )}
+                {!screenStream && !cameraStream && !isStarting && (
+                    <div className="recorder-folder-row">
+                        <button className="recorder-ctrl" onClick={selectFolder}>
+                            📁 {directoryHandle ? `Folder: ${directoryHandle.name}` : 'Select Save Folder'}
+                        </button>
                     </div>
                 )}
             </div>
@@ -248,11 +271,17 @@ const ScreenRecorder = () => {
             {!isRecording && (
                 <div className="recorder-controls">
                     <button className={`recorder-ctrl ${cameraEnabled ? 'active' : ''}`}
-                        onClick={async () => { await toggleCamera(); setCameraEnabled(!!cameraStream); }}>
+                        onClick={async () => {
+                            const stream = await toggleCamera();
+                            if (stream) { setCameraEnabled(true); } else { setCameraEnabled(false); }
+                        }}>
                         📷 {cameraEnabled ? 'Camera On' : 'Camera'}
                     </button>
                     <button className={`recorder-ctrl ${micEnabled ? 'active' : ''}`}
-                        onClick={async () => { await toggleMic(); setMicEnabled(!!audioStream); }}>
+                        onClick={async () => {
+                            const stream = await toggleMic();
+                            if (stream) { setMicEnabled(true); } else { setMicEnabled(false); }
+                        }}>
                         🎤 {micEnabled ? 'Mic On' : 'Mic'}
                     </button>
                     <button className={`recorder-ctrl ${enhancedAudio ? 'active' : ''}`}

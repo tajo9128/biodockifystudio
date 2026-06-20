@@ -78,6 +78,13 @@
     flex-shrink: 0; display: flex; align-items: center; justify-content: center;
     gap: 0.5rem; padding: 0.6rem 1rem; background: var(--bg-card); border-top: 1px solid var(--glass-border);
 }
+.recorder-folder-row {
+    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); z-index: 6;
+}
+.recorder-folder-row .recorder-ctrl {
+    background: rgba(0,0,0,0.7); border-color: rgba(255,255,255,0.1); color: var(--text-muted);
+}
+.recorder-folder-row .recorder-ctrl:hover { border-color: var(--primary); color: var(--text-main); }
 .recorder-ctrl {
     padding: 0.4rem 0.8rem; border: 1px solid var(--glass-border); border-radius: 8px;
     background: var(--glass); color: var(--text-muted); font-size: 0.75rem; font-weight: 600;

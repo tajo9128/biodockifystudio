@@ -32,7 +32,7 @@ export const useStreams = (screenVideoRef, cameraVideoRef, setStatus) => {
             setScreenStream(null);
             setScreenDimensions({ width: 0, height: 0 });
             if (screenVideoRef.current) screenVideoRef.current.srcObject = null;
-            return;
+            return null;
         }
 
         try {
@@ -57,8 +57,10 @@ export const useStreams = (screenVideoRef, cameraVideoRef, setStatus) => {
             };
 
             setStatus('ready');
+            return stream;
         } catch (err) {
             console.warn('Screen capture cancelled or failed:', err.message);
+            return null;
         }
     };
 
@@ -84,7 +86,7 @@ export const useStreams = (screenVideoRef, cameraVideoRef, setStatus) => {
         if (audioStream) {
             audioStream.getTracks().forEach(track => track.stop());
             setAudioStream(null);
-            return;
+            return null;
         }
 
         try {
@@ -94,6 +96,7 @@ export const useStreams = (screenVideoRef, cameraVideoRef, setStatus) => {
             return stream;
         } catch (err) {
             console.warn('Microphone not available:', err.message);
+            return null;
         }
     };
 
