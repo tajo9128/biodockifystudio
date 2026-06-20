@@ -2,20 +2,13 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ToolSidebar } from '../Sidebar/ToolSidebar';
 import { RightPanel } from '../RightPanel/RightPanel';
-import { PreviewStage } from '../Preview/PreviewStage';
 import { Timeline } from '../Timeline/Timeline';
 import { AIAssistant } from '../AI/AIAssistant';
 import { useTimeline } from '../../hooks/useTimeline';
 import { useAnnotation } from '../../hooks/useAnnotation';
 import { useCursorFx } from '../../hooks/useCursorFx';
 import { useZoom } from '../../hooks/useZoom';
-import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { useAI } from '../../hooks/useAI';
-import { useOverlays } from '../../hooks/useOverlays';
-import { useStreams } from '../../hooks/useStreams';
-import { useRecording } from '../../hooks/useRecording';
-import { useAudioLevel } from '../../hooks/useAudioLevel';
-import { BACKGROUND_PRESETS } from '../../constants/backgrounds';
 import { useClipBin } from '../../hooks/useClipBin';
 import { ClipBin } from './ClipBin';
 import { ClipMonitor } from './ClipMonitor';
@@ -25,36 +18,16 @@ import './EditMode.css';
 export const EditMode = () => {
     const navigate = useNavigate();
     const canvasRef = useRef(null);
-    const screenVideoRef = useRef(null);
-    const cameraVideoRef = useRef(null);
+    const previewVideoRef = useRef(null);
 
+    const timeline = useTimeline();
+    const ai = useAI();
+    const clipBin = useClipBin();
     const [activeTool, setActiveTool] = useState(null);
     const [rightPanelOpen, setRightPanelOpen] = useState(false);
     const [activeFilters, setActiveFilters] = useState([]);
-    const [cursorFxEnabled, setCursorFxEnabled] = useState(false);
-    const [annotationEnabled, setAnnotationEnabled] = useState(false);
-    const [zoomEnabled, setZoomEnabled] = useState(false);
-    const [activeBg, _setActiveBg] = useState('none');
-    const [webcamShape, _setWebcamShape] = useState('circle');
-    const [webcamScale, _setWebcamScale] = useState(0.25);
-    const [screenScale, _setScreenScale] = useState(1.0);
     const [aiOpen, setAiOpen] = useState(false);
-    const timeline = useTimeline();
-    const annotation = useAnnotation(canvasRef, annotationEnabled);
-    const { drawCursorFx } = useCursorFx(canvasRef, cursorFxEnabled);
-    const { applyZoom, restoreZoom, setZoomLevel } = useZoom(canvasRef, zoomEnabled);
-    const ai = useAI();
-    const overlays = useOverlays();
-    const streams = useStreams(screenVideoRef, cameraVideoRef, () => {});
-    const recording = useRecording({
-        screenStream: streams?.screenStream,
-        cameraStream: streams?.cameraStream,
-        activeBg,
-        screenScale,
-        canvasRef,
-    });
-    const _audioLevel = useAudioLevel(streams?.audioStream);
-    const clipBin = useClipBin();
+    const [annotationEnabled, setAnnotationEnabled] = useState(false);
 
     const selectedClip = timeline.clips.find(c => c.id === timeline.selectedClipId);
 
@@ -454,43 +427,24 @@ export const EditMode = () => {
         if (canvas.height !== 480) canvas.height = 480;
     }, [timeline.clips.length]);
 
-    // Keep ref in sync with state so rAF loop reads latest time
-    useEffect(() => { currentTimeRef.current = timeline.currentTime; }, [timeline.currentTime]);
-
+    // Sync preview video with timeline playback
     useEffect(() => {
-        if (!timeline.isPlaying) {
-            if (previewRafRef.current) {
-                cancelAnimationFrame(previewRafRef.current);
-                previewRafRef.current = null;
-            }
-            return;
+        const vid = previewVideoRef.current;
+        if (!vid || timeline.clips.length === 0) return;
+        if (timeline.isPlaying) {
+            vid.currentTime = timeline.currentTime;
+            vid.play().catch(() => {});
+            const iv = setInterval(() => {
+                if (vid && !vid.paused) {
+                    vid.currentTime = timeline.currentTime;
+                }
+            }, 100);
+            return () => clearInterval(iv);
+        } else {
+            vid.pause();
+            vid.currentTime = timeline.currentTime;
         }
-
-        const renderPreview = () => {
-            const canvas = canvasRef.current;
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d', { alpha: false });
-            timeline.renderFrame(ctx, canvas, currentTimeRef.current);
-            previewRafRef.current = requestAnimationFrame(renderPreview);
-        };
-
-        previewRafRef.current = requestAnimationFrame(renderPreview);
-        return () => {
-            if (previewRafRef.current) {
-                cancelAnimationFrame(previewRafRef.current);
-                previewRafRef.current = null;
-            }
-        };
-    }, [timeline.isPlaying, timeline.renderFrame]);
-
-    // Also render a single frame on seek (even when not playing)
-    useEffect(() => {
-        if (timeline.isPlaying) return;
-        const canvas = canvasRef.current;
-        if (!canvas || timeline.clips.length === 0) return;
-        const ctx = canvas.getContext('2d', { alpha: false });
-        timeline.renderFrame(ctx, canvas, timeline.currentTime);
-    }, [timeline.currentTime, timeline.isPlaying, timeline.clips.length, timeline.renderFrame]);
+    }, [timeline.isPlaying, timeline.currentTime, timeline.clips.length]);
 
     return (
         <div className="edit-mode" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
@@ -512,32 +466,19 @@ export const EditMode = () => {
                         </div>
                     ) : (
                         <>
-                        <PreviewStage
-                            canvasRef={canvasRef}
-                            screenVideoRef={screenVideoRef}
-                            cameraVideoRef={cameraVideoRef}
-                            screenStream={streams.screenStream}
-                            cameraStream={streams.cameraStream}
-                            activeBg={activeBg}
-                            webcamShape={webcamShape}
-                            webcamScale={webcamScale}
-                            screenScale={screenScale}
-                            isRecording={recording.isRecording}
-                            isPaused={recording.isPaused}
-                            webcamOnly={false}
-                            cursorFxEnabled={cursorFxEnabled}
-                            drawCursorFx={drawCursorFx}
-                            annotationEnabled={annotationEnabled}
-                            annotationHandlers={annotationEnabled ? {
-                                onMouseDown: annotation.handleMouseDown,
-                                onMouseMove: annotation.handleMouseMove,
-                                onMouseUp: annotation.handleMouseUp,
-                            } : null}
-                            zoomEnabled={zoomEnabled}
-                            applyZoom={applyZoom}
-                            restoreZoom={restoreZoom}
-                            editMode={true}
-                        />
+                        {/* Simple video preview — no canvas for basic edit */}
+                        <div className="edit-preview-video">
+                            {timeline.clips[0]?.sourceUrl ? (
+                                <video
+                                    ref={previewVideoRef}
+                                    src={timeline.clips[0].sourceUrl}
+                                    muted
+                                    style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 8, background: '#000' }}
+                                />
+                            ) : (
+                                <div className="preview-placeholder">No video source available</div>
+                            )}
+                        </div>
                         {/* Transport bar below preview */}
                         <div className="edit-transport-bar">
                             <button className="edit-transport-btn" onClick={timeline.stop} title="Stop">⏮</button>
