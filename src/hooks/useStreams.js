@@ -59,7 +59,7 @@ export const useStreams = (screenVideoRef, cameraVideoRef, setStatus) => {
             setStatus('ready');
             return stream;
         } catch (err) {
-            console.warn('Screen capture cancelled or failed:', err.message);
+            alert(`Could not acquire screen: ${err.message}`);
             return null;
         }
     };
@@ -96,6 +96,7 @@ export const useStreams = (screenVideoRef, cameraVideoRef, setStatus) => {
             return stream;
         } catch (err) {
             console.error('Mic error:', err);
+            alert(`Could not acquire microphone: ${err.message}`);
             throw err;
         }
     };
@@ -127,6 +128,7 @@ export const useStreams = (screenVideoRef, cameraVideoRef, setStatus) => {
             return stream;
         } catch (err) {
             console.error('Camera error:', err);
+            alert(`Could not acquire camera: ${err.message}`);
             throw err;
         }
     };
