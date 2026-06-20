@@ -77,10 +77,10 @@ body {
 .recorder-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 3rem 2rem;
+  padding: 2rem 2rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: 2.5rem;
+  gap: 1.5rem;
   align-items: center;
 }
 
@@ -320,6 +320,19 @@ body {
   width: 100%;
   max-width: 800px;
   position: relative;
+}
+
+.recorder-extra-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 1rem;
+  background: var(--nav-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-radius: 100px;
+  border: 1px solid var(--glass-border);
+  margin-top: 0.5rem;
 }
 
 .control-bar {

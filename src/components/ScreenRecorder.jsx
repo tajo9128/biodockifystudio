@@ -36,6 +36,15 @@ const QUALITY_PRESETS = {
     '1440p': { width: 2560, height: 1440, label: '1440p (2K)', bitrate: 20000000 }
 };
 
+const RECORDING_TEMPLATES = [
+    { id: 'screen-only', icon: '🖥️', label: 'Screen' },
+    { id: 'camera-only', icon: '📷', label: 'Camera' },
+    { id: 'pip-circle', icon: '⭕', label: 'PiP Circle' },
+    { id: 'pip-rect', icon: '📺', label: 'PiP Rect' },
+    { id: 'side-by-side', icon: '⬛📷', label: 'Side' },
+    { id: 'stacked', icon: '📺📷', label: 'Stacked' },
+];
+
 const ScreenRecorder = () => {
     const canvasRef = useRef(null);
     const screenVideoRef = useRef(null);
@@ -72,6 +81,8 @@ const ScreenRecorder = () => {
     const [filterPanelOpen, setFilterPanelOpen] = useState(false);
     const [activeFilters, setActiveFilters] = useState([]);
     const [showWelcome, setShowWelcome] = useState(false);
+    const [layoutTemplate, setLayoutTemplate] = useState('pip-circle');
+    const [pipCorner, setPipCorner] = useState('br');
 
     const audioLevel = useAudioLevel(audioStream);
     const { drawCursorFx } = useCursorFx(canvasRef, cursorFxEnabled);
@@ -99,6 +110,15 @@ const ScreenRecorder = () => {
         playVideo, startRename, handleRename, deleteFile,
         generateThumbnail, getThumbnailUrl
     } = useFileSystem(showToast, setHighlightedFile);
+
+    const selectFolder = useCallback(async () => {
+        try {
+            const handle = await window.showDirectoryPicker();
+            setDirectoryHandle(handle);
+            await storageManager.setSetting('workspace_handle', handle);
+            showToast('Folder Selected', `Saves to: ${handle.name}`, 'success');
+        } catch { }
+    }, [showToast]);
 
     const handleRecordingComplete = useCallback((blob, mimeType) => {
         if (!blob) {
@@ -423,6 +443,35 @@ const ScreenRecorder = () => {
                 filterPanelOpen={filterPanelOpen} setFilterPanelOpen={setFilterPanelOpen}
                 sourceType={sourceType} setSourceType={setSourceType}
                 toggleSystemAudio={toggleSystemAudio} systemAudioStream={systemAudioStream} />
+
+            {/* Second row — extra features compact toolbar */}
+            <div className="recorder-extra-row">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    {RECORDING_TEMPLATES.map(t => (
+                        <button key={t.id} className={`btn-pill ${layoutTemplate === t.id ? 'active' : ''}`}
+                            onClick={() => setLayoutTemplate(t.id)} title={t.label}
+                            style={{ padding: '0.3rem 0.5rem', fontSize: '0.65rem', fontWeight: 600 }}>
+                            {t.icon} {t.label}
+                        </button>
+                    ))}
+                    {(layoutTemplate === 'pip-circle' || layoutTemplate === 'pip-rect') && (
+                        <>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.6rem' }}>|</span>
+                            {['tl', 'tr', 'bl', 'br'].map(c => (
+                                <button key={c} className={`btn-pill ${pipCorner === c ? 'active' : ''}`}
+                                    onClick={() => setPipCorner(c)}
+                                    style={{ padding: '0.25rem 0.4rem', fontSize: '0.6rem' }}>
+                                    {c === 'tl' ? '↖' : c === 'tr' ? '↗' : c === 'bl' ? '↙' : '↘'}
+                                </button>
+                            ))}
+                        </>
+                    )}
+                    <span style={{ color: 'var(--glass-border)', margin: '0 0.2rem' }}>|</span>
+                    <button className="btn-pill" onClick={selectFolder} style={{ padding: '0.3rem 0.5rem', fontSize: '0.65rem', fontWeight: 600 }}>
+                        📁 {directoryHandle ? directoryHandle.name : 'Folder'}
+                    </button>
+                </div>
+            </div>
 
             {/* Timeline toggle */}
             <div style={{ display: 'flex', justifyContent: 'center', margin: '1rem 0' }}>
