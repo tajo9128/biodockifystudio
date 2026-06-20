@@ -15,6 +15,32 @@ const QUALITY_PRESETS = {
     '1440p': { width: 2560, height: 1440, bitrate: 20000000 },
 };
 
+const RECORDING_TEMPLATES = [
+    { id: 'screen-only', icon: '🖥️', label: 'Screen', desc: 'Screen recording only' },
+    { id: 'camera-only', icon: '📷', label: 'Camera', desc: 'Webcam only' },
+    { id: 'pip-circle', icon: '⭕', label: 'PiP Circle', desc: 'Screen + circle cam' },
+    { id: 'pip-rect', icon: '📺', label: 'PiP Rect', desc: 'Screen + rectangle cam' },
+    { id: 'side-by-side', icon: '⬛📷', label: 'Side by Side', desc: 'Screen left, cam right' },
+    { id: 'stacked', icon: '📺📷', label: 'Stacked', desc: 'Screen top, cam bottom' },
+];
+
+const drawFit = (ctx, video, x, y, w, h) => {
+    const va = video.videoWidth / video.videoHeight;
+    const ca = w / h;
+    let dw, dh;
+    if (va > ca) { dw = w; dh = w / va; } else { dh = h; dw = h * va; }
+    ctx.drawImage(video, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+};
+
+const getPipPos = (cw, ch, camW, camH, pad, corner) => {
+    switch (corner) {
+        case 'tl': return { x: pad, y: pad };
+        case 'tr': return { x: cw - camW - pad, y: pad };
+        case 'bl': return { x: pad, y: ch - camH - pad };
+        default:  return { x: cw - camW - pad, y: ch - camH - pad };
+    }
+};
+
 const ScreenRecorder = () => {
     const canvasRef = useRef(null);
     const screenVideoRef = useRef(null);
@@ -30,7 +56,10 @@ const ScreenRecorder = () => {
     const [directoryHandle, setDirectoryHandle] = useState(null);
     const [isStarting, setIsStarting] = useState(false);
     const [showCamPreview, setShowCamPreview] = useState(false);
+    const [layoutTemplate, setLayoutTemplate] = useState('pip-circle');
+    const [pipCorner, setPipCorner] = useState('br'); // tl, tr, bl, br
     const isStartingRef = useRef(false);
+    const pipPosRef = useRef({ corner: 'br', x: 0, y: 0 });
 
     const { screenStream, audioStream, cameraStream, toggleScreen, toggleMic, toggleCamera, stopAll, screenDimensions } = useStreams(screenVideoRef, cameraVideoRef, () => {});
     const audioLevel = useAudioLevel(audioStream);
@@ -106,7 +135,10 @@ const ScreenRecorder = () => {
         if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
     }, [recQuality, screenDimensions]);
 
-    // Canvas render loop
+    // Update pip position ref when corner changes
+    useEffect(() => { pipPosRef.current.corner = pipCorner; }, [pipCorner]);
+
+    // Canvas render loop — supports all templates
     useEffect(() => {
         let running = true;
         const loop = () => {
@@ -114,40 +146,57 @@ const ScreenRecorder = () => {
             const c = canvasRef.current;
             if (!c) { requestAnimationFrame(loop); return; }
             const ctx = c.getContext('2d', { alpha: false });
+            const tpl = layoutTemplate;
+
+            // Background
             ctx.fillStyle = '#1a1a1a';
             ctx.fillRect(0, 0, c.width, c.height);
 
-            // Draw screen
-            if (screenStream && screenVideoRef.current?.readyState >= 2) {
-                const v = screenVideoRef.current;
-                const a = v.videoWidth / v.videoHeight;
-                const ca = c.width / c.height;
-                let dw, dh;
-                if (a > ca) { dw = c.width; dh = c.width / a; } else { dh = c.height; dw = c.height * a; }
-                ctx.drawImage(v, (c.width - dw) / 2, (c.height - dh) / 2, dw, dh);
-            }
+            const hasScreen = screenStream && screenVideoRef.current?.readyState >= 2 && tpl !== 'camera-only';
+            const hasCamera = cameraStream && cameraVideoRef.current?.readyState >= 2 && tpl !== 'screen-only';
 
-            // Draw camera PiP
-            if (cameraStream && cameraVideoRef.current?.readyState >= 2) {
-                const v = cameraVideoRef.current;
-                const a = v.videoWidth / v.videoHeight;
-                const bs = c.height * 0.22;
-                let dw, dh;
-                if (a > 1) { dw = bs * a; dh = bs; } else { dw = bs; dh = bs / a; }
-                const px = c.width - dw - 20, py = c.height - dh - 20;
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(px + bs / 2, py + bs / 2, bs / 2, 0, Math.PI * 2);
-                ctx.clip();
-                ctx.drawImage(v, px, py, dw, dh);
-                ctx.restore();
+            if (tpl === 'screen-only' || tpl === 'camera-only') {
+                // Single source full canvas
+                const v = tpl === 'screen-only' ? screenVideoRef.current : cameraVideoRef.current;
+                if (v?.readyState >= 2) drawFit(ctx, v, 0, 0, c.width, c.height);
+            } else if (tpl === 'side-by-side') {
+                const hw = c.width / 2;
+                if (hasScreen) drawFit(ctx, screenVideoRef.current, 0, 0, hw, c.height);
+                else { ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, 0, hw, c.height); }
+                if (hasCamera) drawFit(ctx, cameraVideoRef.current, hw, 0, hw, c.height);
+                else { ctx.fillStyle = '#1a1a1a'; ctx.fillRect(hw, 0, hw, c.height); }
+            } else if (tpl === 'stacked') {
+                const hh = c.height / 2;
+                if (hasScreen) drawFit(ctx, screenVideoRef.current, 0, 0, c.width, hh);
+                else { ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, 0, c.width, hh); }
+                if (hasCamera) drawFit(ctx, cameraVideoRef.current, 0, hh, c.width, hh);
+                else { ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, hh, c.width, hh); }
+            } else {
+                // PiP templates: screen full + camera overlay
+                if (hasScreen) drawFit(ctx, screenVideoRef.current, 0, 0, c.width, c.height);
+                if (hasCamera) {
+                    const v = cameraVideoRef.current;
+                    const camW = c.width * 0.25;
+                    const camH = camW * (v.videoHeight / v.videoWidth);
+                    const pad = 16;
+                    const { x: cx, y: cy } = getPipPos(c.width, c.height, camW, camH, pad, pipCorner);
+                    pipPosRef.current.x = cx; pipPosRef.current.y = cy;
+                    ctx.save();
+                    if (tpl === 'pip-circle') {
+                        const radius = Math.max(camW, camH) / 2;
+                        ctx.beginPath();
+                        ctx.arc(cx + camW / 2, cy + camH / 2, radius, 0, Math.PI * 2);
+                        ctx.clip();
+                    }
+                    drawFit(ctx, v, cx, cy, camW, camH);
+                    ctx.restore();
+                }
             }
-
             requestAnimationFrame(loop);
         };
         loop();
         return () => { running = false; };
-    }, [screenStream, cameraStream]);
+    }, [screenStream, cameraStream, layoutTemplate, pipCorner]);
 
     // Keyboard
     useEffect(() => {
@@ -159,36 +208,49 @@ const ScreenRecorder = () => {
         return () => window.removeEventListener('keydown', onKey);
     }, [isRecording]);
 
-    // === CORE FLOW: One click starts everything ===
+    // === CORE FLOW: Start captures both screen + camera, saves to folder ===
     const startFlow = useCallback(async () => {
         if (isStartingRef.current || isRecording) return;
         isStartingRef.current = true;
         setIsStarting(true);
 
         try {
-            // Open screen picker
-            const newScreenStream = await toggleScreen();
-            // Check if user picked a screen or cancelled
-            if (!newScreenStream && !cameraStream) {
+            const needsCam = ['pip-circle', 'pip-rect', 'side-by-side', 'stacked', 'camera-only'].includes(layoutTemplate);
+            const needsScreen = layoutTemplate !== 'camera-only';
+
+            // Capture screen if needed
+            let gotScreen = true;
+            if (needsScreen && !screenStream) {
+                gotScreen = !!(await toggleScreen());
+            }
+            // Capture camera if template needs it
+            let gotCam = true;
+            if (needsCam && !cameraStream) {
+                const stream = await toggleCamera();
+                gotCam = !!stream;
+                if (stream) { setCameraEnabled(true); setShowCamPreview(true); }
+            }
+            // Bail if nothing captured
+            if (!gotScreen && !gotCam) {
                 setIsStarting(false);
                 isStartingRef.current = false;
                 return;
             }
-            // Auto-enable mic if not active
+            // Auto-enable mic
             if (!audioStream) {
                 await toggleMic().catch(() => {});
             }
-            // Start recording after stream settles
+            // Start recording with both streams
             setTimeout(() => {
                 startRecording();
                 setIsStarting(false);
                 isStartingRef.current = false;
-            }, 500);
+            }, 600);
         } catch {
             setIsStarting(false);
             isStartingRef.current = false;
         }
-    }, [cameraStream, audioStream, isRecording, toggleScreen, toggleMic, startRecording]);
+    }, [layoutTemplate, screenStream, cameraStream, audioStream, isRecording, toggleScreen, toggleCamera, toggleMic, startRecording]);
 
     const fmtTime = (s) => `${Math.floor(s/60).toString().padStart(2, '0')}:${(s%60).toString().padStart(2, '0')}`;
 
@@ -262,6 +324,40 @@ const ScreenRecorder = () => {
                                     ) : '🔒 Click to enable'}
                                 </span>
                             </button>
+                        </div>
+                        {/* Template selector */}
+                        <div className="recorder-templates">
+                            <span className="template-label">Recording Layout</span>
+                            <div className="template-options">
+                                {RECORDING_TEMPLATES.map(t => (
+                                    <button key={t.id}
+                                        className={`template-btn ${layoutTemplate === t.id ? 'selected' : ''}`}
+                                        onClick={() => setLayoutTemplate(t.id)}
+                                        title={t.desc}>
+                                        <span className="template-icon">{t.icon}</span>
+                                        <span className="template-name">{t.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            {(layoutTemplate === 'pip-circle' || layoutTemplate === 'pip-rect') && (
+                                <div className="pip-corners">
+                                    <span className="template-label">Webcam Position</span>
+                                    <div className="corner-options">
+                                        {[
+                                            { id: 'tl', label: '↖ Top Left' },
+                                            { id: 'tr', label: '↗ Top Right' },
+                                            { id: 'bl', label: '↙ Bot Left' },
+                                            { id: 'br', label: '↘ Bot Right' },
+                                        ].map(c => (
+                                            <button key={c.id}
+                                                className={`corner-btn ${pipCorner === c.id ? 'selected' : ''}`}
+                                                onClick={() => setPipCorner(c.id)}>
+                                                {c.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <button className="recorder-start-btn" onClick={startFlow} disabled={isStarting || (!screenStream && !cameraStream)}>
                             {isStarting ? 'Opening Screen Picker...' : (screenStream || cameraStream) ? 'Start Recording' : 'Enable Screen or Camera to start'}

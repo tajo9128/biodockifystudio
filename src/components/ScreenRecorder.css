@@ -73,6 +73,41 @@
 }
 .recorder-folder-info { font-size: 0.75rem; color: var(--text-muted); margin: 0; }
 
+/* Template selector */
+.recorder-templates {
+    display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+}
+.template-label {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--text-muted);
+}
+.template-options {
+    display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: center;
+}
+.template-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
+    padding: 0.45rem 0.6rem; border: 2px solid var(--glass-border); border-radius: 10px;
+    background: var(--glass); color: var(--text-muted); font-family: inherit;
+    cursor: pointer; transition: all 0.15s; min-width: 68px;
+}
+.template-btn:hover { border-color: var(--primary); color: var(--text-main); }
+.template-btn.selected {
+    border-color: var(--primary); background: rgba(139,92,246,0.15); color: var(--primary);
+}
+.template-icon { font-size: 1rem; }
+.template-name { font-size: 0.55rem; font-weight: 600; line-height: 1.1; text-align: center; }
+
+/* Pip corner picker */
+.pip-corners { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; }
+.corner-options { display: flex; gap: 0.3rem; }
+.corner-btn {
+    padding: 0.25rem 0.5rem; border: 1px solid var(--glass-border); border-radius: 6px;
+    background: var(--glass); color: var(--text-muted); font-size: 0.6rem;
+    font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.15s;
+}
+.corner-btn:hover { border-color: var(--primary); color: var(--text-main); }
+.corner-btn.selected { border-color: var(--primary); color: var(--primary); background: rgba(139,92,246,0.1); }
+
 /* Overlay controls when sources active */
 .recorder-overlay-controls {
     position: absolute; bottom: 12px; left: 12px; right: 12px;
