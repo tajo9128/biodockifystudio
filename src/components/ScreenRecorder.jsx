@@ -13,7 +13,6 @@ import { useAI } from '../hooks/useAI';
 import { useYouTube } from '../hooks/useYouTube';
 
 // UI Components
-import { ControlBar } from './Controls/ControlBar';
 import { HistorySidebar } from './Sidebar/HistorySidebar';
 import { PreviewStage } from './Preview/PreviewStage';
 import { Toast } from './Notifications/Toast';
@@ -83,6 +82,7 @@ const ScreenRecorder = () => {
     const [showWelcome, setShowWelcome] = useState(false);
     const [layoutTemplate, setLayoutTemplate] = useState('pip-circle');
     const [pipCorner, setPipCorner] = useState('br');
+    const [drawer, setDrawer] = useState(null);
 
     const audioLevel = useAudioLevel(audioStream);
     const { drawCursorFx } = useCursorFx(canvasRef, cursorFxEnabled);
@@ -491,53 +491,162 @@ const ScreenRecorder = () => {
                     canUndo={annotation.hasAnnotations} canRedo={false} />
             )}
 
-            <ControlBar screenStream={screenStream} cameraStream={cameraStream} audioStream={audioStream}
-                activeBg={activeBg} setActiveBg={setActiveBg} isRecording={isRecording}
-                webcamShape={webcamShape} setWebcamShape={setWebcamShape} webcamScale={webcamScale} setWebcamScale={setWebcamScale}
-                screenScale={screenScale} setScreenScale={setScreenScale} toggleScreen={toggleScreen} toggleCamera={toggleCamera}
-                toggleMic={toggleMic} recordingQuality={recordingQuality} setRecordingQuality={setRecordingQuality}
-                qualityPresets={QUALITY_PRESETS} recordingFormat={recordingFormat} setRecordingFormat={setRecordingFormat}
-                startRecording={startRecording} pauseRecording={pauseRecording} resumeRecording={resumeRecording}
-                stopRecording={stopRecording} isPaused={isPaused} handleStopAll={handleStopAll}
-                changeCamera={changeCamera} changeMic={changeMic} audioLevel={audioLevel}
-                cursorFxEnabled={cursorFxEnabled} setCursorFxEnabled={setCursorFxEnabled}
-                webcamOnly={webcamOnly} setWebcamOnly={setWebcamOnly}
-                annotationEnabled={annotationEnabled} setAnnotationEnabled={setAnnotationEnabled}
-                zoomEnabled={zoomEnabled} setZoomEnabled={setZoomEnabled}
-                chatOpen={chatOpen} setChatOpen={setChatOpen}
-                youtubeOpen={ytOpen} setYoutubeOpen={setYtOpen}
-                filterPanelOpen={filterPanelOpen} setFilterPanelOpen={setFilterPanelOpen}
-                sourceType={sourceType} setSourceType={setSourceType}
-                toggleSystemAudio={toggleSystemAudio} systemAudioStream={systemAudioStream} />
-
-            {/* Second row — extra features compact toolbar */}
-            <div className="recorder-extra-row">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-                    {RECORDING_TEMPLATES.map(t => (
-                        <button key={t.id} className={`btn-pill ${layoutTemplate === t.id ? 'active' : ''}`}
-                            onClick={() => setLayoutTemplate(t.id)} title={t.label}
-                            style={{ padding: '0.3rem 0.5rem', fontSize: '0.65rem', fontWeight: 600 }}>
-                            {t.icon} {t.label}
-                        </button>
-                    ))}
-                    {(layoutTemplate === 'pip-circle' || layoutTemplate === 'pip-rect') && (
-                        <>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.6rem' }}>|</span>
-                            {['tl', 'tr', 'bl', 'br'].map(c => (
-                                <button key={c} className={`btn-pill ${pipCorner === c ? 'active' : ''}`}
-                                    onClick={() => setPipCorner(c)}
-                                    style={{ padding: '0.25rem 0.4rem', fontSize: '0.6rem' }}>
-                                    {c === 'tl' ? '↖' : c === 'tr' ? '↗' : c === 'bl' ? '↙' : '↘'}
-                                </button>
-                            ))}
-                        </>
-                    )}
-                    <span style={{ color: 'var(--glass-border)', margin: '0 0.2rem' }}>|</span>
-                    <button className="btn-pill" onClick={selectFolder} style={{ padding: '0.3rem 0.5rem', fontSize: '0.65rem', fontWeight: 600 }}>
-                        📁 {directoryHandle ? directoryHandle.name : 'Folder'}
+            {/* Single toolbar bar — dadan.io style */}
+            <div className="control-bar">
+                <button className={`btn-pill ${cameraStream ? 'active' : ''}`}
+                    onClick={async () => { await toggleCamera(); }} disabled={isRecording}>
+                    📷 Cam
+                </button>
+                <button className={`btn-pill ${audioStream ? 'active' : ''}`}
+                    onClick={async () => { await toggleMic(); }} disabled={isRecording}>
+                    🎤 Mic
+                </button>
+                <button className={`btn-pill ${screenStream ? 'active' : ''}`}
+                    onClick={async () => { await toggleScreen(); }} disabled={isRecording}>
+                    🖥️ Screen
+                </button>
+                <span style={{ color: 'var(--glass-border)', margin: '0 0.25rem' }}>|</span>
+                <button className={`btn-pill ${drawer === 'layout' ? 'active' : ''}`}
+                    onClick={() => setDrawer(drawer === 'layout' ? null : 'layout')}>
+                    Layout
+                </button>
+                <button className={`btn-pill ${drawer === 'background' ? 'active' : ''}`}
+                    onClick={() => setDrawer(drawer === 'background' ? null : 'background')}>
+                    BG
+                </button>
+                <select className="btn-pill" value={recordingQuality}
+                    onChange={e => setRecordingQuality(e.target.value)}
+                    style={{ appearance: 'auto', paddingRight: '0.3rem' }}>
+                    <option value="720p">720p</option>
+                    <option value="1080p">1080p</option>
+                    <option value="1440p">1440p</option>
+                </select>
+                <button className="btn-pill" onClick={selectFolder}>📁 Folder</button>
+                <span style={{ color: 'var(--glass-border)', margin: '0 0.25rem' }}>|</span>
+                <button className={`btn-pill ${drawer === 'tools' ? 'active' : ''}`}
+                    onClick={() => setDrawer(drawer === 'tools' ? null : 'tools')}>
+                    🛠 Tools
+                </button>
+                {!isRecording ? (
+                    <button className="btn-pill active" onClick={startFlow} disabled={isStarting}
+                        style={{ background: 'var(--danger)', color: 'white' }}>
+                        ⏺ Record
                     </button>
-                </div>
+                ) : (
+                    <>
+                        <button className="btn-pill" onClick={pauseRecording}>
+                            {isPaused ? '▶ Resume' : '⏸ Pause'}
+                        </button>
+                        <button className="btn-pill" onClick={stopRecording}
+                            style={{ background: 'var(--danger)', color: 'white' }}>
+                            ⏹ Stop
+                        </button>
+                        <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--danger)', fontWeight: 700 }}>
+                            {formatTime(elapsedTime)}
+                        </span>
+                    </>
+                )}
+                <button className={`btn-pill ${layoutTemplate.startsWith('pip') ? 'active' : ''}`}
+                    onClick={() => setLayoutTemplate(layoutTemplate.startsWith('pip') ? 'screen-only' : 'pip-circle')}>
+                    PIP
+                </button>
             </div>
+
+            {/* Bottom drawer */}
+            {drawer && (
+                <div className="settings-panel-overlay" onClick={() => setDrawer(null)}>
+                    <div className="settings-drawer" onClick={e => e.stopPropagation()}>
+                        <div className="drawer-handle" />
+                        <div className="drawer-header">
+                            <h3>{drawer === 'layout' ? 'Recording Layout' : drawer === 'background' ? 'Background Presets' : 'Advanced Tools'}</h3>
+                            <button className="drawer-close" onClick={() => setDrawer(null)}>×</button>
+                        </div>
+                        {drawer === 'layout' && (
+                            <div className="drawer-options">
+                                {RECORDING_TEMPLATES.map(t => (
+                                    <button key={t.id} className={`panel-option ${layoutTemplate === t.id ? 'selected' : ''}`}
+                                        onClick={() => setLayoutTemplate(t.id)}>
+                                        {t.icon} {t.label}
+                                    </button>
+                                ))}
+                                {(layoutTemplate === 'pip-circle' || layoutTemplate === 'pip-rect') && (
+                                    <div className="drawer-options" style={{ width: '100%', marginTop: '0.5rem' }}>
+                                        {[{ id: 'tl', label: '↖ Top Left' }, { id: 'tr', label: '↗ Top Right' },
+                                          { id: 'bl', label: '↙ Bot Left' }, { id: 'br', label: '↘ Bot Right' }].map(c => (
+                                            <button key={c.id} className={`panel-option ${pipCorner === c.id ? 'selected' : ''}`}
+                                                onClick={() => setPipCorner(c.id)}>{c.label}</button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {drawer === 'background' && (
+                            <div className="drawer-options">
+                                {BACKGROUND_PRESETS.map(b => (
+                                    <button key={b.id} className={`panel-option bg-option ${activeBg === b.id ? 'selected' : ''}`}
+                                        onClick={() => { setActiveBg(b.id); setDrawer(null); }}
+                                        style={{ background: b.colors ? `linear-gradient(135deg,${b.colors.join(',')})` : '#1a1a1a', minWidth: 80, color: 'white', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+                                        {b.name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        {drawer === 'tools' && (
+                            <div className="drawer-options" style={{ flexDirection: 'column', gap: '0.6rem' }}>
+                                <div className="setting-row">
+                                    <label>🎯 Cursor FX</label>
+                                    <button className={`panel-option ${cursorFxEnabled ? 'selected' : ''}`}
+                                        onClick={() => setCursorFxEnabled(!cursorFxEnabled)}>
+                                        {cursorFxEnabled ? 'ON' : 'OFF'}
+                                    </button>
+                                </div>
+                                <div className="setting-row">
+                                    <label>📷 Webcam Only</label>
+                                    <button className={`panel-option ${webcamOnly ? 'selected' : ''}`}
+                                        onClick={() => setWebcamOnly(!webcamOnly)} disabled={isRecording}>
+                                        {webcamOnly ? 'ON' : 'OFF'}
+                                    </button>
+                                </div>
+                                <div className="setting-row">
+                                    <label>✏️ Annotation</label>
+                                    <button className={`panel-option ${annotationEnabled ? 'selected' : ''}`}
+                                        onClick={() => setAnnotationEnabled(!annotationEnabled)}>
+                                        {annotationEnabled ? 'ON' : 'OFF'}
+                                    </button>
+                                </div>
+                                <div className="setting-row">
+                                    <label>🔍 Zoom</label>
+                                    <button className={`panel-option ${zoomEnabled ? 'selected' : ''}`}
+                                        onClick={() => setZoomEnabled(!zoomEnabled)}>
+                                        {zoomEnabled ? 'ON' : 'OFF'}
+                                    </button>
+                                </div>
+                                <div className="setting-row">
+                                    <label>🤖 AI Chat</label>
+                                    <button className={`panel-option ${chatOpen ? 'selected' : ''}`}
+                                        onClick={() => setChatOpen(!chatOpen)}>
+                                        {chatOpen ? 'ON' : 'OFF'}
+                                    </button>
+                                </div>
+                                <div className="setting-row">
+                                    <label>📺 YouTube</label>
+                                    <button className={`panel-option ${ytOpen ? 'selected' : ''}`}
+                                        onClick={() => setYtOpen(!ytOpen)}>
+                                        {ytOpen ? 'ON' : 'OFF'}
+                                    </button>
+                                </div>
+                                <div className="setting-row">
+                                    <label>🎨 Filters</label>
+                                    <button className={`panel-option ${filterPanelOpen ? 'selected' : ''}`}
+                                        onClick={() => setFilterPanelOpen(!filterPanelOpen)}>
+                                        {filterPanelOpen ? 'ON' : 'OFF'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Timeline toggle */}
             <div style={{ display: 'flex', justifyContent: 'center', margin: '1rem 0' }}>
