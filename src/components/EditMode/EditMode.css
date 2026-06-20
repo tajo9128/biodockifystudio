@@ -6,9 +6,9 @@
 }
 
 .edit-mode-main {
-    flex: 1 1 55%;
+    flex: 1 1 40%;
     display: flex;
-    min-height: 100px;
+    min-height: 80px;
     overflow: hidden;
 }
 
@@ -83,13 +83,14 @@
 .edit-transport-sep { color: var(--text-muted); opacity: 0.5; }
 
 .edit-mode-timeline {
-    flex: 1 1 45%;
+    flex: 2 1 60%;
     flex-shrink: 0;
-    min-height: 220px;
+    min-height: 280px;
     border-top: 2px solid var(--glass-border);
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    padding-bottom: 24px;
 }
 
 .edit-mode-timeline > div:first-child {

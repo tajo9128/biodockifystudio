@@ -213,9 +213,10 @@ export const Timeline = ({
                 </div>
                 {clip.type === 'audio' && (
                     <div className="tl-clip-waveform" style={{ position: 'absolute', left: 8, right: 8, bottom: 6, height: 16, display: 'flex', alignItems: 'flex-end', gap: 1 }}>
-                        {Array.from({ length: 40 }).map((_, i) => (
-                            <div key={i} style={{ flex: 1, height: `${10 + Math.random() * 70}%`, background: '#10b981', borderRadius: '1px', opacity: 0.6 }} />
-                        ))}
+                        {Array.from({ length: 40 }).map((_, i) => {
+                            const h = 15 + Math.sin(i * 0.5) * 30 + Math.sin(i * 1.7) * 20;
+                            return <div key={i} style={{ flex: 1, height: `${Math.abs(h)}%`, background: '#10b981', borderRadius: '1px', opacity: 0.7 }} />
+                        })}
                     </div>
                 )}
                 {clipThumbnails[clip.id] && (
