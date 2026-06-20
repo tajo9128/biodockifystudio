@@ -126,7 +126,9 @@ export const EditMode = () => {
     }, [timeline, showToast]);
 
     const handleImportMedia = useCallback((e) => {
-        importFiles(e.target.files);
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+        importFiles(files);
         e.target.value = '';
     }, [importFiles]);
 
