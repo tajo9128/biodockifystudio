@@ -10,6 +10,7 @@ import { StreamMode } from './components/Streaming/StreamMode';
 import { ExportMode } from './components/ExportMode/ExportMode';
 import { SettingsPage } from './components/Settings/SettingsPage';
 import LandingPage from './components/LandingPage/LandingPage';
+import ProjectManager from './components/ProjectManager/ProjectManager';
 import './index.css';
 
 function App() {
@@ -19,9 +20,11 @@ function App() {
         <ThemeProvider>
           <Routes>
               <Route path="/" element={<LandingPage />} />
+              <Route path="/projects" element={<ProjectManager />} />
               <Route element={<AppShell />}>
                 <Route path="/recorder" element={<ScreenRecorder />} />
                 <Route path="/editor" element={<EditMode />} />
+                <Route path="/editor/:projectId" element={<EditMode />} />
                 <Route path="/stream" element={<StreamMode />} />
                 <Route path="/export" element={<ExportMode />} />
                 <Route path="/settings" element={<SettingsPage />} />

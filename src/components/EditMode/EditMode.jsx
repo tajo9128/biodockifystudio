@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { ToolSidebar } from '../Sidebar/ToolSidebar';
 import { RightPanel } from '../RightPanel/RightPanel';
 import { Timeline } from '../Timeline/Timeline';
@@ -10,20 +10,35 @@ import { useCursorFx } from '../../hooks/useCursorFx';
 import { useZoom } from '../../hooks/useZoom';
 import { useAI } from '../../hooks/useAI';
 import { useClipBin } from '../../hooks/useClipBin';
+import { useOverlays } from '../../hooks/useOverlays';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { ClipBin } from './ClipBin';
 import { ClipMonitor } from './ClipMonitor';
 import { Toast } from '../Notifications/Toast';
+import UploadZone from '../UploadZone/UploadZone';
+import RenderDialog from '../RenderDialog/RenderDialog';
 import { recordingStore } from '../../utils/RecordingStore';
 import './EditMode.css';
 
 export const EditMode = () => {
     const navigate = useNavigate();
+    const location = useLocation();
+    const { projectId } = useParams();
     const canvasRef = useRef(null);
     const previewVideoRef = useRef(null);
+
+    const [serverProject, setServerProject] = useState(null);
+    const [serverClips, setServerClips] = useState([]);
+    const [projectLoading, setProjectLoading] = useState(!!projectId);
+    const [renderOpen, setRenderOpen] = useState(false);
 
     const timeline = useTimeline();
     const ai = useAI();
     const clipBin = useClipBin();
+    const overlays = useOverlays();
+    const [zoomEnabled, setZoomEnabled] = useState(false);
+    const [cursorFxEnabled, setCursorFxEnabled] = useState(false);
+    const { setZoomLevel } = useZoom(canvasRef, zoomEnabled);
     const [activeTool, setActiveTool] = useState(null);
     const [rightPanelOpen, setRightPanelOpen] = useState(false);
     const [activeFilters, setActiveFilters] = useState([]);
@@ -32,18 +47,88 @@ export const EditMode = () => {
 
     // Auto-import recording from recorder on mount
     useEffect(() => {
-        const rec = recordingStore.get();
-        if (rec?.url && rec.blob) {
+        const serverVideoUrl = location.state?.serverVideoUrl;
+        if (serverVideoUrl) {
             timeline.addClip(0, {
-                sourceUrl: rec.url,
-                duration: 10,
-                sourceEnd: 10,
-                label: rec.name || 'Recording',
+                sourceUrl: serverVideoUrl,
+                duration: 30,
+                sourceEnd: 30,
+                label: 'Recording',
                 type: 'video',
             });
-            recordingStore.clear();
+        } else {
+            const rec = recordingStore.get();
+            if (rec?.url && rec.blob) {
+                timeline.addClip(0, {
+                    sourceUrl: rec.url,
+                    duration: 10,
+                    sourceEnd: 10,
+                    label: rec.name || 'Recording',
+                    type: 'video',
+                });
+                recordingStore.clear();
+            }
         }
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Load project from server if projectId param present
+    useEffect(() => {
+        if (!projectId) { setProjectLoading(false); return; }
+        fetch(`/api/projects/${projectId}`)
+            .then(r => r.json())
+            .then(p => {
+                setServerProject(p);
+                setServerClips(p.clips || []);
+                if (p.timeline?.tracks?.length > 0) {
+                    const loadedClips = [];
+                    for (const track of p.timeline.tracks) {
+                        for (const clip of (track.clips || [])) {
+                            loadedClips.push({
+                                sourceUrl: clip.clipId ? `/api/videos/${clip.clipId}` : null,
+                                duration: (clip.sourceEnd || 10) - (clip.sourceStart || 0),
+                                sourceStart: clip.sourceStart || 0,
+                                sourceEnd: clip.sourceEnd || 10,
+                                label: clip.clipId || 'Clip',
+                                type: 'video',
+                            });
+                        }
+                    }
+                    if (loadedClips.length > 0) {
+                        loadedClips.forEach(c => timeline.addClip(0, c));
+                    }
+                }
+                setProjectLoading(false);
+            })
+            .catch(() => setProjectLoading(false));
+    }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Auto-save timeline to server
+    const saveTimeoutRef = useRef(null);
+    const timelineRef = useRef(timeline);
+    timelineRef.current = timeline;
+    useEffect(() => {
+        if (!projectId) return;
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = setTimeout(() => {
+            const tl = timelineRef.current;
+            const tracks = tl.tracks.map(t => ({
+                id: t.id,
+                type: t.type,
+                clips: tl.clips.filter(c => c.trackIndex === tl.tracks.indexOf(t)).map(c => ({
+                    clipId: c.sourceUrl?.replace('/api/videos/', '') || c.label,
+                    sourceStart: c.sourceStart || 0,
+                    sourceEnd: c.sourceEnd || c.duration || 10,
+                    trackStart: c.startTime || 0,
+                    speed: c.speed || 1,
+                })),
+            }));
+            fetch(`/api/projects/${projectId}/timeline`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tracks }),
+            }).catch(() => {});
+        }, 2000);
+    }, [timeline.clips, timeline.tracks, projectId]);
 
     const selectedClip = timeline.clips.find(c => c.id === timeline.selectedClipId);
 
@@ -206,6 +291,17 @@ export const EditMode = () => {
         });
         setPreviewClip(null);
     }, [previewClip, timeline]);
+
+    const handleClipUploaded = useCallback((result) => {
+        timeline.addClip(0, {
+            sourceUrl: `/api/videos/${result.clipId}`,
+            duration: result.duration || 10,
+            sourceEnd: result.duration || 10,
+            label: result.originalName?.replace(/\.[^/.]+$/, '') || 'Upload',
+            type: 'video',
+        });
+        setServerClips(prev => [...prev, result]);
+    }, [timeline]);
 
     const handleToolChange = useCallback((tool) => {
         setActiveTool(tool);
@@ -470,7 +566,7 @@ export const EditMode = () => {
                 <ToolSidebar activeTool={activeTool} onToolChange={handleToolChange} onUpload={triggerUpload} />
 
                 <div className="edit-mode-canvas">
-                    {timeline.clips.length === 0 ? (
+                    {timeline.clips.length === 0 && !projectId ? (
                         <div className="edit-drop-zone" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
                             onClick={() => fileInputRef.current?.click()}>
                             <div className="edit-drop-zone-inner">
@@ -480,6 +576,8 @@ export const EditMode = () => {
                                 <button className="btn btn-primary" onClick={(e) => { e.stopPropagation(); triggerUpload(); }}>Upload Video</button>
                             </div>
                         </div>
+                    ) : timeline.clips.length === 0 && projectId ? (
+                        <UploadZone onClipUploaded={handleClipUploaded} />
                     ) : (
                         <>
                         {/* Simple video preview — no canvas for basic edit */}
@@ -625,22 +723,35 @@ export const EditMode = () => {
                 />
             )}
 
-            <div style={{ position: 'fixed', bottom: '0.5rem', right: '0.5rem', zIndex: 50, display: 'flex', gap: '0.3rem' }}>
-                <button className="btn btn-outline" style={{ fontSize: '0.65rem', padding: '0.25rem 0.5rem' }}
-                    onClick={() => {
-                        const project = { clips: timeline.clips, tracks: timeline.tracks, savedAt: Date.now() };
-                        localStorage.setItem('biodockifystudio_project', JSON.stringify(project));
-                        alert('Project saved!');
-                    }}>Save</button>
-                <button className="btn btn-outline" style={{ fontSize: '0.65rem', padding: '0.25rem 0.5rem' }}
-                    onClick={() => {
-                        const saved = localStorage.getItem('biodockifystudio_project');
-                        if (!saved) return alert('No saved project found.');
-                        const project = JSON.parse(saved);
-                        project.clips.forEach(c => timeline.addClip(c.trackIndex, c));
-                        alert('Project loaded!');
-                    }}>Load</button>
-            </div>
+            {projectId && (
+                <div style={{ position: 'fixed', bottom: '0.5rem', right: '0.5rem', zIndex: 50, display: 'flex', gap: '0.3rem' }}>
+                    <button className="btn btn-outline" style={{ fontSize: '0.65rem', padding: '0.25rem 0.5rem' }}
+                        onClick={() => navigate('/projects')}>Back</button>
+                    <button className="btn btn-primary" style={{ fontSize: '0.65rem', padding: '0.25rem 0.5rem' }}
+                        onClick={() => setRenderOpen(true)}>Render</button>
+                </div>
+            )}
+            {!projectId && (
+                <div style={{ position: 'fixed', bottom: '0.5rem', right: '0.5rem', zIndex: 50, display: 'flex', gap: '0.3rem' }}>
+                    <button className="btn btn-outline" style={{ fontSize: '0.65rem', padding: '0.25rem 0.5rem' }}
+                        onClick={() => {
+                            const project = { clips: timeline.clips, tracks: timeline.tracks, savedAt: Date.now() };
+                            localStorage.setItem('biodockifystudio_project', JSON.stringify(project));
+                            alert('Project saved!');
+                        }}>Save</button>
+                    <button className="btn btn-outline" style={{ fontSize: '0.65rem', padding: '0.25rem 0.5rem' }}
+                        onClick={() => {
+                            const saved = localStorage.getItem('biodockifystudio_project');
+                            if (!saved) return alert('No saved project found.');
+                            const project = JSON.parse(saved);
+                            project.clips.forEach(c => timeline.addClip(c.trackIndex, c));
+                            alert('Project loaded!');
+                        }}>Load</button>
+                </div>
+            )}
+            {renderOpen && projectId && (
+                <RenderDialog projectId={projectId} onClose={() => setRenderOpen(false)} />
+            )}
             <Toast toast={toast} onClose={() => setToast(null)} />
         </div>
     );

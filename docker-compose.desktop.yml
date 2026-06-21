@@ -9,3 +9,27 @@ services:
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      - recording-server
+
+  recording-server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.recording
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+    volumes:
+      - recordings:/recordings
+      - proxies:/proxies
+      - output:/output
+    environment:
+      - PORT=8081
+      - RECORDINGS_DIR=/recordings
+      - PROXIES_DIR=/proxies
+      - OUTPUT_DIR=/output
+
+volumes:
+  recordings:
+  proxies:
+  output:

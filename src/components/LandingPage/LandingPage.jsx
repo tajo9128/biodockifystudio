@@ -77,6 +77,7 @@ const LandingPage = () => {
                     <a href="#comparison">Compare</a>
                     <a href="#faq">FAQ</a>
                     <button className="btn btn-primary btn-sm" style={{ color: 'white' }} onClick={() => navigate('/recorder')}>Launch Studio</button>
+                    <button className="btn btn-outline btn-sm" style={{ fontSize: '0.85rem', padding: '0.4rem 0.9rem' }} onClick={() => navigate('/projects')}>Projects</button>
                     <ThemeToggle />
                 </div>
             </nav>

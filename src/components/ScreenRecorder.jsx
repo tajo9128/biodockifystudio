@@ -27,6 +27,8 @@ import { applyFilters } from '../utils/FilterEngine';
 import { Timeline } from './Timeline/Timeline';
 import { useTimeline } from '../hooks/useTimeline';
 import { useOverlays } from '../hooks/useOverlays';
+import { useServerRecording } from '../hooks/useServerRecording';
+import { recordingStore } from '../utils/RecordingStore';
 import { WelcomeModal } from './WelcomeModal/WelcomeModal';
 
 const QUALITY_PRESETS = {
@@ -96,6 +98,7 @@ const ScreenRecorder = () => {
     const youtube = useYouTube();
     const timeline = useTimeline();
     const overlays = useOverlays();
+    const serverRec = useServerRecording();
     const [showTimeline, setShowTimeline] = useState(false);
 
     const showToast = useCallback((title, message, type = 'info') => {
@@ -130,7 +133,12 @@ const ScreenRecorder = () => {
             return;
         }
         setPendingRecording({ blob, mimeType });
-    }, [showToast]);
+        serverRec.stop().then(result => {
+            if (result) {
+                setPendingRecording(prev => prev ? { ...prev, serverVideoUrl: result.videoUrl, serverProxyUrl: result.proxyUrl } : prev);
+            }
+        }).catch(() => {});
+    }, [showToast, serverRec]);
 
     const {
         isRecording, isPaused, status: recStatus, startRecording: startMediaRecording, pauseRecording, resumeRecording, stopRecording, resetRecording
@@ -139,7 +147,8 @@ const ScreenRecorder = () => {
         activeBg, screenScale, canvasRef,
         recordingQuality,
         bitrate: QUALITY_PRESETS[recordingQuality].bitrate,
-        onComplete: handleRecordingComplete
+        onComplete: handleRecordingComplete,
+        chunkCallback: serverRec.sendChunk,
     });
 
     // Keep refs current for cleanup
@@ -197,10 +206,16 @@ const ScreenRecorder = () => {
         setPendingRecording(null);
     };
 
-    const handleEditNow = useCallback((blob, mimeType) => {
-        recordingStore.set(blob, mimeType);
-        setPendingRecording(null);
-        navigate('/editor');
+    const handleEditNow = useCallback((blob, mimeType, serverInfo) => {
+        if (serverInfo?.videoUrl) {
+            recordingStore.set(null, null, null);
+            setPendingRecording(null);
+            navigate('/editor', { state: { serverVideoUrl: serverInfo.videoUrl, serverProxyUrl: serverInfo.proxyUrl } });
+        } else {
+            recordingStore.set(blob, mimeType);
+            setPendingRecording(null);
+            navigate('/editor');
+        }
     }, [navigate]);
 
     const webcamPos = useRef({ x: 20, y: 410 });
@@ -449,8 +464,9 @@ const ScreenRecorder = () => {
 
     useEffect(() => { if (isHistoryOpen && directoryHandle) syncLibrary(directoryHandle); }, [isHistoryOpen, directoryHandle, syncLibrary]);
 
-    const startRecording = useCallback(() => {
+    const handleStartRecording = useCallback(() => {
         if (isRecording || countdown !== null) return;
+        serverRec.start();
         setCountdown(3);
         countdownTimerRef.current = setInterval(() => {
             setCountdown(prev => {
@@ -461,34 +477,26 @@ const ScreenRecorder = () => {
                 return prev - 1;
             });
         }, 1000);
-    }, [isRecording, countdown, startMediaRecording]);
+    }, [isRecording, countdown, startMediaRecording, serverRec]);
 
     const startFlow = useCallback(async () => {
         if (isStartingRef.current || isRecording) return;
         isStartingRef.current = true; setIsStarting(true);
         if (!screenStream && !cameraStream) { setIsStarting(false); isStartingRef.current = false; return; }
-        setCountdown(3);
-        countdownTimerRef.current = setInterval(() => {
-            setCountdown(prev => {
-                if (prev <= 1) {
-                    if (countdownTimerRef.current) { clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; }
-                    startMediaRecording(); setIsStarting(false); isStartingRef.current = false; return null;
-                }
-                return prev - 1;
-            });
-        }, 1000);
-    }, [screenStream, cameraStream, isRecording, startMediaRecording]);
+        handleStartRecording();
+        setIsStarting(false); isStartingRef.current = false;
+    }, [screenStream, cameraStream, isRecording, handleStartRecording]);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-            if (e.code === 'Space') { e.preventDefault(); if (isRecording) stopRecording(); else if (countdown === null) startRecording(); }
+            if (e.code === 'Space') { e.preventDefault(); if (isRecording) stopRecording(); else if (countdown === null) handleStartRecording(); }
             else if (e.code === 'KeyP' && isRecording) { e.preventDefault(); if (isPaused) resumeRecording(); else pauseRecording(); }
             else if (e.code === 'Escape' && countdown !== null) { e.preventDefault(); if (countdownTimerRef.current) { clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; } setCountdown(null); }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isRecording, isPaused, countdown, startRecording, stopRecording, pauseRecording, resumeRecording]);
+    }, [isRecording, isPaused, countdown, handleStartRecording, stopRecording, pauseRecording, resumeRecording]);
 
     return (
         <div className="recorder-container">
@@ -733,7 +741,10 @@ const ScreenRecorder = () => {
             <Toast toast={toast} onClose={() => setToast(null)} />
 
             <SaveRecordingModal blob={pendingRecording?.blob} mimeType={pendingRecording?.mimeType}
-                onSave={handleSaveRecording} onDiscard={() => setPendingRecording(null)}
+                serverVideoUrl={pendingRecording?.serverVideoUrl}
+                serverProxyUrl={pendingRecording?.serverProxyUrl}
+                serverProcessing={serverRec.isProcessing}
+                onSave={handleSaveRecording} onDiscard={() => { serverRec.cancel(); setPendingRecording(null); }}
                 onEditNow={handleEditNow}
                 onYouTube={() => setYtOpen(true)} />
 

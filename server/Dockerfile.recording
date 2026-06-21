@@ -1,0 +1,18 @@
+FROM node:20-alpine
+
+RUN apk add --no-cache ffmpeg
+
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm install --omit=dev
+COPY recording-server.js ./
+
+EXPOSE 8081
+
+RUN mkdir -p /recordings /proxies /output
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget -qO- http://localhost:8081/health || exit 1
+
+USER node
+CMD ["node", "recording-server.js"]

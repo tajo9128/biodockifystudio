@@ -14,7 +14,8 @@ export const useRecording = ({
     useCanvas: useCanvasProp,
     multiTrack = false,
     canvasElement,
-    onComplete
+    onComplete,
+    chunkCallback,
 } = {}) => {
     const [isRecording, setIsRecording] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
@@ -78,7 +79,12 @@ export const useRecording = ({
             mediaRecorderRef.current = recorder;
             chunksRef.current = [];
 
-            recorder.ondataavailable = (e) => { if (e.data?.size > 0) chunksRef.current.push(e.data); };
+            recorder.ondataavailable = (e) => {
+                if (e.data?.size > 0) {
+                    chunksRef.current.push(e.data);
+                    if (chunkCallback) chunkCallback(e.data);
+                }
+            };
             recorder.onerror = () => { setIsRecording(false); setStatus('error'); };
             recorder.onstop = () => {
                 const blob = chunksRef.current.length > 0 ? new Blob(chunksRef.current, { type: mime }) : null;
@@ -95,7 +101,7 @@ export const useRecording = ({
         } finally {
             isStartingRef.current = false;
         }
-    }, [screenStream, cameraStream, audioStream, canvasRef, bitrate, onComplete]);
+    }, [screenStream, cameraStream, audioStream, canvasRef, bitrate, onComplete, chunkCallback]);
 
     const pauseRecording = useCallback(() => {
         if (mediaRecorderRef.current?.state === 'recording') { mediaRecorderRef.current.pause(); setIsPaused(true); setStatus('paused'); }
