@@ -739,15 +739,15 @@ export const EditMode = () => {
                         onClick={() => {
                             const project = { clips: timeline.clips, tracks: timeline.tracks, savedAt: Date.now() };
                             localStorage.setItem('biodockifystudio_project', JSON.stringify(project));
-                            alert('Project saved!');
+                            showToast('Saved', 'Project saved to browser storage', 'success');
                         }}>Save</button>
                     <button className="btn btn-outline" style={{ fontSize: '0.65rem', padding: '0.25rem 0.5rem' }}
                         onClick={() => {
                             const saved = localStorage.getItem('biodockifystudio_project');
-                            if (!saved) return alert('No saved project found.');
+                            if (!saved) { showToast('Error', 'No saved project found.', 'error'); return; }
                             const project = JSON.parse(saved);
                             project.clips.forEach(c => timeline.addClip(c.trackIndex, c));
-                            alert('Project loaded!');
+                            showToast('Loaded', 'Project loaded from browser storage', 'success');
                         }}>Load</button>
                 </div>
             )}
