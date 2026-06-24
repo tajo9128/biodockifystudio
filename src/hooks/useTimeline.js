@@ -136,8 +136,8 @@ export const useTimeline = () => {
         pushUndo(clips, tracks);
         const clip = clips.find(c => c.id === id);
         const vid = videoCacheRef.current.get(id);
-        if (vid) { vid.pause(); vid.src = ''; videoCacheRef.current.delete(id); }
-        if (clip?.sourceUrl) URL.revokeObjectURL(clip.sourceUrl);
+        if (vid) { vid.pause(); vid.removeAttribute('src'); vid.load(); videoCacheRef.current.delete(id); }
+        if (clip?.sourceUrl?.startsWith('blob:')) URL.revokeObjectURL(clip.sourceUrl);
         setClips(prev => {
             const updated = prev.filter(c => c.id !== id);
             updateDuration(updated);
@@ -324,7 +324,7 @@ export const useTimeline = () => {
             if (videoCacheRef.current.size >= 2) {
                 const first = videoCacheRef.current.keys().next().value;
                 const old = videoCacheRef.current.get(first);
-                if (old) { old.pause(); old.src = ''; old.load(); }
+                if (old) { old.pause(); old.removeAttribute('src'); old.load(); }
                 videoCacheRef.current.delete(first);
             }
             video = document.createElement('video');
@@ -341,7 +341,7 @@ export const useTimeline = () => {
     useEffect(() => {
         const cache = videoCacheRef.current;
         return () => {
-            cache.forEach(v => { v.pause(); v.src = ''; });
+            cache.forEach(v => { v.pause(); v.removeAttribute('src'); v.load(); });
             cache.clear();
         };
     }, []);

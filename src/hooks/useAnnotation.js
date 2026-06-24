@@ -15,6 +15,8 @@ export const useAnnotation = (canvasRef, enabled) => {
     useEffect(() => {
         if (!enabled || !canvasRef.current) return;
         const mainCanvas = canvasRef.current;
+        if (mainCanvas.width === 0 || mainCanvas.height === 0) return;
+        if (overlayCanvasRef.current?.width === mainCanvas.width) return;
         const overlay = document.createElement('canvas');
         overlay.width = mainCanvas.width;
         overlay.height = mainCanvas.height;
@@ -41,10 +43,12 @@ export const useAnnotation = (canvasRef, enabled) => {
             currentPath.current = [pos];
         } else if (tool === 'text') {
             isDrawing.current = false;
-            const text = prompt('Enter text:');
-            if (text) {
-                setHistory(prev => [...prev, { type: 'text', x: pos.x, y: pos.y, text, color, strokeWidth }]);
-                setRedoStack([]);
+            if (typeof window !== 'undefined' && window.prompt) {
+                const text = window.prompt('Enter text:');
+                if (text) {
+                    setHistory(prev => [...prev, { type: 'text', x: pos.x, y: pos.y, text, color, strokeWidth }]);
+                    setRedoStack([]);
+                }
             }
         }
     }, [enabled, tool, color, strokeWidth, getPos]);

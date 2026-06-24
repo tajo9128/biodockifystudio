@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { ToolSidebar } from '../Sidebar/ToolSidebar';
 import { RightPanel } from '../RightPanel/RightPanel';
@@ -6,7 +6,6 @@ import { Timeline } from '../Timeline/Timeline';
 import { AIAssistant } from '../AI/AIAssistant';
 import { useTimeline } from '../../hooks/useTimeline';
 import { useAnnotation } from '../../hooks/useAnnotation';
-import { useCursorFx } from '../../hooks/useCursorFx';
 import { useZoom } from '../../hooks/useZoom';
 import { useAI } from '../../hooks/useAI';
 import { useClipBin } from '../../hooks/useClipBin';
@@ -27,8 +26,8 @@ export const EditMode = () => {
     const canvasRef = useRef(null);
     const previewVideoRef = useRef(null);
 
-    const [serverProject, setServerProject] = useState(null);
-    const [serverClips, setServerClips] = useState([]);
+    const [, setServerProject] = useState(null);
+    const [, setServerClips] = useState([]);
     const [projectLoading, setProjectLoading] = useState(!!projectId);
     const [renderOpen, setRenderOpen] = useState(false);
 
@@ -37,19 +36,26 @@ export const EditMode = () => {
     const clipBin = useClipBin();
     const overlays = useOverlays();
     const [zoomEnabled, setZoomEnabled] = useState(false);
-    const [cursorFxEnabled, setCursorFxEnabled] = useState(false);
+    const [, setCursorFxEnabled] = useState(false);
     const { setZoomLevel } = useZoom(canvasRef, zoomEnabled);
     const [activeTool, setActiveTool] = useState(null);
     const [rightPanelOpen, setRightPanelOpen] = useState(false);
     const [activeFilters, setActiveFilters] = useState([]);
     const [aiOpen, setAiOpen] = useState(false);
     const [annotationEnabled, setAnnotationEnabled] = useState(false);
+    const annotation = useAnnotation(canvasRef, annotationEnabled);
+
+    // Stable ref to timeline so mount effects don't capture a stale hook
+    const timelineRef = useRef(timeline);
+    timelineRef.current = timeline;
 
     // Auto-import recording from recorder on mount
     useEffect(() => {
+        const tl = timelineRef.current;
+        if (!tl || projectId) return; // skip if loading a server project
         const serverVideoUrl = location.state?.serverVideoUrl;
         if (serverVideoUrl) {
-            timeline.addClip(0, {
+            tl.addClip(0, {
                 sourceUrl: serverVideoUrl,
                 duration: 30,
                 sourceEnd: 30,
@@ -59,7 +65,7 @@ export const EditMode = () => {
         } else {
             const rec = recordingStore.get();
             if (rec?.url && rec.blob) {
-                timeline.addClip(0, {
+                tl.addClip(0, {
                     sourceUrl: rec.url,
                     duration: 10,
                     sourceEnd: 10,
@@ -74,12 +80,15 @@ export const EditMode = () => {
     // Load project from server if projectId param present
     useEffect(() => {
         if (!projectId) { setProjectLoading(false); return; }
+        let cancelled = false;
         fetch(`/api/projects/${projectId}`)
             .then(r => r.json())
             .then(p => {
+                if (cancelled || !p || typeof p !== 'object') { setProjectLoading(false); return; }
                 setServerProject(p);
                 setServerClips(p.clips || []);
-                if (p.timeline?.tracks?.length > 0) {
+                const tl = timelineRef.current;
+                if (p.timeline?.tracks?.length > 0 && tl) {
                     const loadedClips = [];
                     for (const track of p.timeline.tracks) {
                         for (const clip of (track.clips || [])) {
@@ -94,18 +103,17 @@ export const EditMode = () => {
                         }
                     }
                     if (loadedClips.length > 0) {
-                        loadedClips.forEach(c => timeline.addClip(0, c));
+                        loadedClips.forEach(c => tl.addClip(0, c));
                     }
                 }
-                setProjectLoading(false);
+                if (!cancelled) setProjectLoading(false);
             })
-            .catch(() => setProjectLoading(false));
-    }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+            .catch(() => { if (!cancelled) setProjectLoading(false); });
+        return () => { cancelled = true; };
+    }, [projectId]);
 
     // Auto-save timeline to server
     const saveTimeoutRef = useRef(null);
-    const timelineRef = useRef(timeline);
-    timelineRef.current = timeline;
     useEffect(() => {
         if (!projectId) return;
         clearTimeout(saveTimeoutRef.current);
@@ -526,18 +534,6 @@ export const EditMode = () => {
         'arrowright': () => timeline.setCurrentTime?.((timeline.currentTime || 0) + 1),
         'ctrl+d': () => { if (timeline.selectedClipId) timeline.duplicateClip(timeline.selectedClipId); },
     });
-
-    // Drive canvas preview during timeline playback
-    const previewRafRef = useRef(null);
-    const currentTimeRef = useRef(timeline.currentTime);
-
-    // Set canvas drawing buffer size — small to prevent OOM
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas || timeline.clips.length === 0) return;
-        if (canvas.width !== 854) canvas.width = 854;
-        if (canvas.height !== 480) canvas.height = 480;
-    }, [timeline.clips.length]);
 
     // Sync preview video with timeline playback
     useEffect(() => {

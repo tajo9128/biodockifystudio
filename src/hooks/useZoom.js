@@ -3,6 +3,8 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 export const useZoom = (canvasRef, enabled) => {
     const [zoomLevel, setZoomLevel] = useState(1);
     const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+    const zoomLevelRef = useRef(zoomLevel);
+    useEffect(() => { zoomLevelRef.current = zoomLevel; }, [zoomLevel]);
     const isPanning = useRef(false);
     const lastPanPos = useRef({ x: 0, y: 0 });
 
@@ -26,7 +28,7 @@ export const useZoom = (canvasRef, enabled) => {
         };
 
         const onMouseDown = (e) => {
-            if (zoomLevel > 1) {
+            if (zoomLevelRef.current > 1) {
                 isPanning.current = true;
                 lastPanPos.current = { x: e.clientX, y: e.clientY };
             }
@@ -60,9 +62,9 @@ export const useZoom = (canvasRef, enabled) => {
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
         };
-    }, [canvasRef, enabled, zoomLevel]);
+    }, [canvasRef, enabled]);
 
-    // Reset when disabled — only call setState if values actually differ
+    // Reset when disabled
     useEffect(() => {
         if (!enabled) {
             setZoomLevel(prev => prev !== 1 ? 1 : prev);
@@ -71,18 +73,18 @@ export const useZoom = (canvasRef, enabled) => {
     }, [enabled]);
 
     const applyZoom = useCallback((ctx, canvasWidth, canvasHeight) => {
-        if (!enabled || zoomLevel <= 1) return;
+        if (!enabled || zoomLevelRef.current <= 1) return;
 
         ctx.save();
         ctx.translate(canvasWidth / 2 + panOffset.x, canvasHeight / 2 + panOffset.y);
-        ctx.scale(zoomLevel, zoomLevel);
+        ctx.scale(zoomLevelRef.current, zoomLevelRef.current);
         ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
-    }, [enabled, zoomLevel, panOffset]);
+    }, [enabled, panOffset]);
 
     const restoreZoom = useCallback((ctx) => {
-        if (!enabled || zoomLevel <= 1) return;
+        if (!enabled || zoomLevelRef.current <= 1) return;
         ctx.restore();
-    }, [enabled, zoomLevel]);
+    }, [enabled]);
 
     return {
         zoomLevel,
