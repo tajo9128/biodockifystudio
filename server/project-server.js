@@ -21,7 +21,10 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-const upload = multer({ dest: path.join(VIDEOS_DIR, '.uploads') });
+const upload = multer({
+    dest: path.join(VIDEOS_DIR, '.uploads'),
+    limits: { fileSize: 50 * 1024 * 1024 * 1024 }, // 50GB max
+});
 const jobQueue = new JobQueue();
 
 // ---------- Project CRUD ----------
@@ -95,7 +98,8 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             '-c:v', 'libx264',
             '-preset', 'fast',
             '-crf', '28',
-            '-an',
+            '-c:a', 'aac',
+            '-b:a', '128k',
             '-movflags', '+faststart',
             '-y', proxyPath,
         ]);
@@ -110,6 +114,14 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             duration,
             size: fs.statSync(sourcePath).size,
         });
+
+        // Clean up the .uploads temp dir if empty
+        try {
+            const uploadsDir = path.join(VIDEOS_DIR, '.uploads');
+            if (fs.existsSync(uploadsDir) && fs.readdirSync(uploadsDir).length === 0) {
+                fs.rmdirSync(uploadsDir);
+            }
+        } catch { /* ignore */ }
     } catch (err) {
         console.error('[project-server] Upload error:', err);
         res.status(500).json({ error: err.message });

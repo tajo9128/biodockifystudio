@@ -190,15 +190,38 @@ export const EditMode = () => {
         setTimeout(() => setToast(null), 3000);
     }, []);
 
+    const SERVER_UPLOAD_THRESHOLD = 100 * 1024 * 1024; // 100MB — above this, upload to Docker for proxy generation
+
     const importFiles = useCallback((files) => {
         Array.from(files).forEach(file => {
             const fileId = `${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
             setUploadQueue(prev => [...prev, { id: fileId, name: file.name, size: file.size, status: 'loading' }]);
             try {
-                if (file.size > 2 * 1024 * 1024 * 1024) {
-                    setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'error', error: '>2GB' } : f));
+                if (file.size > SERVER_UPLOAD_THRESHOLD) {
+                    // Large file — upload to server, edit from 480p proxy (supports 10GB+)
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    fetch('/api/upload', { method: 'POST', body: formData })
+                        .then(r => r.json())
+                        .then(result => {
+                            if (!result.clipId) throw new Error('Upload failed');
+                            // Use proxy URL for editing (small 480p file), source URL kept for final render
+                            timeline.addClip(0, {
+                                sourceUrl: result.proxyUrl || `/api/videos/${result.clipId}`,
+                                duration: result.duration || 10,
+                                sourceEnd: result.duration || 10,
+                                label: (result.originalName || file.name).replace(/\.[^/.]+$/, ''),
+                                type: 'video',
+                            });
+                            setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'done' } : f));
+                            setTimeout(() => setUploadQueue(prev => prev.filter(f => f.id !== fileId)), 2000);
+                        })
+                        .catch(() => {
+                            setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'error', error: 'server upload failed' } : f));
+                        });
                     return;
                 }
+                // Small file — use blob URL (fast, local)
                 // Remove oldest clips if > 3 to prevent OOM
                 const toRemove = timeline.clips.length >= 3 ? timeline.clips.slice(0, timeline.clips.length - 2) : [];
                 toRemove.forEach(c => {
@@ -215,7 +238,6 @@ export const EditMode = () => {
                         label: file.name.replace(/\.[^/.]+$/, ''),
                         type: file.type?.startsWith('audio') ? 'audio' : 'video',
                     });
-                    // Release video element memory but keep blob URL
                     video.removeAttribute('src'); video.load();
                     setUploadQueue(prev => prev.map(f => f.id === fileId ? { ...f, status: 'done' } : f));
                     setTimeout(() => setUploadQueue(prev => prev.filter(f => f.id !== fileId)), 2000);
