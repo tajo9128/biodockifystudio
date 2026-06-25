@@ -539,20 +539,21 @@ export const EditMode = () => {
     useEffect(() => {
         const vid = previewVideoRef.current;
         if (!vid || timeline.clips.length === 0) return;
+
         if (timeline.isPlaying) {
-            vid.currentTime = timeline.currentTime;
-            vid.play().catch(() => {});
-            const iv = setInterval(() => {
-                if (vid && !vid.paused) {
-                    vid.currentTime = timeline.currentTime;
-                }
-            }, 100);
-            return () => clearInterval(iv);
+            const clip = timeline.clips[0];
+            const sourceTime = (timeline.currentTime - clip.startTime) + (clip.sourceStart || 0);
+            if (Math.abs(vid.currentTime - sourceTime) > 0.3) {
+                vid.currentTime = sourceTime;
+            }
+            if (vid.paused) vid.play().catch(() => {});
         } else {
-            vid.pause();
-            vid.currentTime = timeline.currentTime;
+            if (!vid.paused) vid.pause();
+            const clip = timeline.clips[0];
+            const sourceTime = (timeline.currentTime - clip.startTime) + (clip.sourceStart || 0);
+            vid.currentTime = Math.max(0, sourceTime);
         }
-    }, [timeline.isPlaying, timeline.currentTime, timeline.clips.length]);
+    }, [timeline.isPlaying, timeline.currentTime, timeline.clips.length, timeline.clips]);
 
     return (
         <div className="edit-mode" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
@@ -584,7 +585,6 @@ export const EditMode = () => {
                                 <video
                                     ref={previewVideoRef}
                                     src={timeline.clips[0].sourceUrl}
-                                    muted
                                     style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 8, background: '#000' }}
                                 />
                             ) : (
