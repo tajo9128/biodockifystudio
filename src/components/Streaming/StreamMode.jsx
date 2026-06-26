@@ -10,6 +10,12 @@ import { useStreaming } from '../../hooks/useStreaming';
 import { useReplayBuffer } from '../../hooks/useReplayBuffer';
 import { useAudioLevel } from '../../hooks/useAudioLevel';
 import { SourcePanel } from '../Sources/SourcePanel';
+import { useGuests } from '../../hooks/useGuests';
+import { useLiveChat } from '../../hooks/useLiveChat';
+import { useTransitions, TRANSITION_TYPES } from '../../hooks/useTransitions';
+import { GuestPanel } from './GuestPanel';
+import { LiveChatOverlay } from '../Chat/LiveChatOverlay';
+import { RealAudioMeter } from '../Audio/RealAudioMeter';
 import './StreamMode.css';
 
 const LAYOUTS = [
@@ -67,6 +73,9 @@ export const StreamMode = () => {
     });
     const streaming = useStreaming();
     const replay = useReplayBuffer();
+    const guests = useGuests();
+    const liveChat = useLiveChat();
+    const transitions = useTransitions(canvasRef, scenes.renderScene);
 
     // Track active state in refs so unmount cleanup reads latest values
     const activeRef = useRef(false);
@@ -279,6 +288,7 @@ export const StreamMode = () => {
                         <button className={leftTab === 'scenes' ? 'active' : ''} onClick={() => setLeftTab('scenes')}>Scenes</button>
                         <button className={leftTab === 'presenter' ? 'active' : ''} onClick={() => setLeftTab('presenter')}>Presenter</button>
                         <button className={leftTab === 'branding' ? 'active' : ''} onClick={() => setLeftTab('branding')}>Brand</button>
+                        <button className={leftTab === 'guests' ? 'active' : ''} onClick={() => setLeftTab('guests')}>Guests</button>
                     </div>
 
                     <div className="stream-left-content">
@@ -291,6 +301,18 @@ export const StreamMode = () => {
                                     onSelectScene={scenes.setActiveSceneId}
                                     onAddScene={scenes.addScene}
                                 />
+                                <div className="stream-transition-select" style={{ marginTop: '0.5rem', padding: '0 0.5rem' }}>
+                                    <label style={{ fontSize: '10px', color: '#94a3b8', display: 'block', marginBottom: '0.25rem' }}>Transition</label>
+                                    <select
+                                        value={transitions.transitionType}
+                                        onChange={e => transitions.setTransitionType(e.target.value)}
+                                        style={{ width: '100%', padding: '0.3rem', background: '#0f172a', border: '1px solid #334155', borderRadius: '4px', color: '#e2e8f0', fontSize: '11px' }}
+                                    >
+                                        {TRANSITION_TYPES.map(t => (
+                                            <option key={t.id} value={t.id}>{t.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
                                 <div className="stream-section-label" style={{ marginTop: '1rem' }}>Sources</div>
                                 <SourcePanel
                                     scene={scenes.activeScene}
@@ -342,6 +364,14 @@ export const StreamMode = () => {
                                     </button>
                                 </div>
                             </div>
+                        )}
+
+                        {leftTab === 'guests' && (
+                            <GuestPanel
+                                guests={guests.guests}
+                                roomId={guests.roomId}
+                                onRemoveGuest={guests.removeGuest}
+                            />
                         )}
 
                         {leftTab === 'presenter' && (
@@ -556,9 +586,7 @@ export const StreamMode = () => {
                     <div className="stream-right-section">
                         <div className="stream-section-label">Audio</div>
                         <div className="stream-audio-meter">
-                            <div className="stream-audio-bar">
-                                <div className="stream-audio-fill" style={{ width: `${audioLevel * 100}%` }} />
-                            </div>
+                            <RealAudioMeter audioStream={streams?.audioStream} label="Mic" />
                             <button className={`stream-mic-toggle ${streams?.audioStream ? 'active' : ''}`} onClick={streams?.toggleMic}>
                                 {streams?.audioStream ? 'Mute' : 'Unmute'}
                             </button>
@@ -573,6 +601,13 @@ export const StreamMode = () => {
                         ) : (
                             <button className="stream-replay-btn active" onClick={replay.saveReplay}>Save Replay</button>
                         )}
+                    </div>
+
+                    <div className="stream-right-section" style={{ height: '250px', display: 'flex', flexDirection: 'column' }}>
+                        <LiveChatOverlay
+                            messages={liveChat.messages}
+                            onClear={liveChat.clearMessages}
+                        />
                     </div>
 
                     {streaming.isStreaming && (
