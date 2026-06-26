@@ -78,3 +78,26 @@
     align-items: flex-end;
 }
 .kf-add-btn { align-self: flex-end; white-space: nowrap; }
+
+.kf-quick-params {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.kf-quick-btn {
+    padding: 4px 8px;
+    border: 1px solid var(--border, #333);
+    border-radius: 4px;
+    background: var(--bg-tertiary, #2a2a3a);
+    color: var(--text-secondary, #aaa);
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.kf-quick-btn.active {
+    background: var(--primary, #8b5cf6);
+    color: #fff;
+    border-color: var(--primary, #8b5cf6);
+}

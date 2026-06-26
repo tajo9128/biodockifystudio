@@ -51,6 +51,17 @@ export const KeyframeEditor = ({ clip, onAddKeyframe, onRemoveKeyframe, onClose 
                 <button className="btn-icon-bg" onClick={onClose}>x</button>
             </div>
             <div className="kf-body">
+                <div className="kf-quick-params">
+                    {['scale', 'position.x', 'position.y', 'opacity', 'volume'].map(p => (
+                        <button
+                            key={p}
+                            className={`kf-quick-btn ${selectedParam === p ? 'active' : ''}`}
+                            onClick={() => setSelectedParam(p)}
+                        >
+                            {p}
+                        </button>
+                    ))}
+                </div>
                 <div className="kf-param-select">
                     <label>Parameter</label>
                     <select value={selectedParam || ''} onChange={e => setSelectedParam(e.target.value || null)}>
