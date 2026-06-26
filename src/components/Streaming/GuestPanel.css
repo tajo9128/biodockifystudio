@@ -1,0 +1,121 @@
+.guest-panel {
+    padding: 0;
+}
+
+.guest-panel__title {
+    margin: 0 0 0.75rem;
+    font-size: 14px;
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.guest-panel__link {
+    margin-bottom: 1rem;
+}
+
+.guest-panel__label {
+    display: block;
+    font-size: 11px;
+    color: #94a3b8;
+    margin-bottom: 0.25rem;
+}
+
+.guest-panel__url-row {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.guest-panel__url {
+    flex: 1;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    background: #0f172a;
+    color: #94a3b8;
+    font-size: 11px;
+    outline: none;
+}
+
+.guest-panel__copy {
+    padding: 0.4rem 0.8rem;
+    background: #8b5cf6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.guest-panel__copy:hover {
+    background: #7c3aed;
+}
+
+.guest-panel__list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.guest-panel__empty {
+    color: #64748b;
+    font-size: 12px;
+    text-align: center;
+    padding: 1rem 0;
+}
+
+.guest-panel__guest {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    background: #0f172a;
+    border-radius: 6px;
+    border: 1px solid #1e293b;
+}
+
+.guest-panel__guest-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.guest-panel__guest-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #22c55e;
+}
+
+.guest-panel__guest-name {
+    font-size: 13px;
+    color: #e2e8f0;
+}
+
+.guest-panel__guest-actions {
+    display: flex;
+    gap: 0.3rem;
+}
+
+.guest-panel__add-btn,
+.guest-panel__remove-btn {
+    padding: 0.2rem 0.5rem;
+    border: 1px solid #334155;
+    border-radius: 4px;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 10px;
+    cursor: pointer;
+}
+
+.guest-panel__add-btn:hover {
+    background: #22c55e;
+    color: white;
+    border-color: #22c55e;
+}
+
+.guest-panel__remove-btn:hover {
+    background: #ef4444;
+    color: white;
+    border-color: #ef4444;
+}
