@@ -11,6 +11,7 @@ import { AnimationsTrack } from './AnimationsTrack';
 import { useTimelineStore } from '../../store/timelineStore';
 import { TransitionHandles } from './TransitionHandles';
 import { EffectBadge } from './EffectBadge';
+import { WaveformCanvas } from './WaveformCanvas';
 import './Timeline.css';
 
 const TRACK_HEIGHT = 48;
@@ -203,12 +204,13 @@ export const Timeline = ({
                         <span className="tl-clip-duration">{formatTime(clip.duration)}</span>
                     </div>
                     {clip.type === 'audio' && (
-                        <div className="tl-clip-waveform" style={{ position: 'absolute', left: 8, right: 8, bottom: 6, height: 16, display: 'flex', alignItems: 'flex-end', gap: 1 }}>
-                            {Array.from({ length: 40 }).map((_, i) => {
-                                const h = 15 + Math.sin(i * 0.5) * 30 + Math.sin(i * 1.7) * 20;
-                                return <div key={i} style={{ flex: 1, height: `${Math.abs(h)}%`, background: '#10b981', borderRadius: '1px', opacity: 0.7 }} />;
-                            })}
-                        </div>
+                        <WaveformCanvas
+                            clip={clip}
+                            zoom={zoom}
+                            height={TRACK_HEIGHT - 8}
+                            color="#10b981"
+                            backgroundColor="rgba(16, 185, 129, 0.1)"
+                        />
                     )}
                     {clip.type === 'audio' && (
                         <AudioEnvelope
