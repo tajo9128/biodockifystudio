@@ -2,6 +2,8 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { ClipContextMenu } from './ClipContextMenu';
 import { Playhead } from './Playhead';
 import { MarkerLayer } from './MarkerLayer';
+import { KeyframeCanvas } from './KeyframeCanvas';
+import { AudioEnvelope } from './AudioEnvelope';
 import { useTimelineStore } from '../../store/timelineStore';
 import './Timeline.css';
 
@@ -18,6 +20,7 @@ export const Timeline = ({
     const [dragging, setDragging] = useState(null);
     const [contextMenu, setContextMenu] = useState(null);
     const [speedSlider, setSpeedSlider] = useState(null);
+    const [selectedKeyframeParam, setSelectedKeyframeParam] = useState(null);
 
     const clips = useTimelineStore(s => s.clips);
     const tracks = useTimelineStore(s => s.tracks);
@@ -197,6 +200,23 @@ export const Timeline = ({
                             })}
                         </div>
                     )}
+                    {clip.type === 'audio' && (
+                        <AudioEnvelope
+                            clip={clip}
+                            zoom={zoom}
+                            onAddVolumeKeyframe={(clipId, time, value) => {
+                                useTimelineStore.getState().addKeyframe(clipId, 'volume', time, value, 'linear');
+                            }}
+                            onRemoveVolumeKeyframe={(clipId, param, time) => {
+                                useTimelineStore.getState().removeKeyframe(clipId, param, time);
+                            }}
+                            onMoveVolumeKeyframe={(clipId, time, value) => {
+                                const store = useTimelineStore.getState();
+                                store.removeKeyframe(clipId, 'volume', time);
+                                store.addKeyframe(clipId, 'volume', time, value, 'linear');
+                            }}
+                        />
+                    )}
                     {clipThumbnails[clip.id] && (
                         <div className="tl-clip-thumb" style={{ backgroundImage: `url(${clipThumbnails[clip.id]})` }} />
                     )}
@@ -213,6 +233,19 @@ export const Timeline = ({
                                 <div key={i} className="tl-keyframe-dot" style={{ left: `${((kf.time / clip.duration) * 100)}%` }} />
                             ))}
                         </div>
+                    )}
+                    {clip.type !== 'audio' && clip.keyframes && Object.keys(clip.keyframes).length > 0 && (
+                        <KeyframeCanvas
+                            clip={clip}
+                            zoom={zoom}
+                            selectedParam={selectedKeyframeParam}
+                            onAddKeyframe={(clipId, param, time, value, interp) => {
+                                useTimelineStore.getState().addKeyframe(clipId, param, time, value, interp);
+                            }}
+                            onRemoveKeyframe={(clipId, param, time) => {
+                                useTimelineStore.getState().removeKeyframe(clipId, param, time);
+                            }}
+                        />
                     )}
                     <div className="tl-clip-handle tl-clip-handle-right"
                         onMouseDown={(e) => handleClipMouseDown(e, clip, 'right')} />
