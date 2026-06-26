@@ -1,0 +1,46 @@
+.tl-annotations-track {
+    position: relative;
+    background: rgba(139, 92, 246, 0.05);
+    border-top: 1px solid rgba(139, 92, 246, 0.2);
+}
+.tl-annotation-block {
+    position: absolute;
+    top: 4px;
+    height: calc(100% - 8px);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    cursor: grab;
+    opacity: 0.85;
+    overflow: hidden;
+}
+.tl-annotation-block:hover { opacity: 1; }
+.tl-annotation-handle {
+    width: 6px;
+    height: 100%;
+    cursor: ew-resize;
+    flex-shrink: 0;
+}
+.tl-annotation-handle-left { border-radius: 4px 0 0 4px; }
+.tl-annotation-handle-right { border-radius: 0 4px 4px 0; }
+.tl-annotation-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 4px;
+    overflow: hidden;
+}
+.tl-annotation-type {
+    font-size: 9px;
+    text-transform: uppercase;
+    opacity: 0.7;
+    color: #000;
+}
+.tl-annotation-text {
+    font-size: 11px;
+    color: #000;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
