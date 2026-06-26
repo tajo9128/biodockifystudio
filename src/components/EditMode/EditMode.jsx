@@ -16,6 +16,7 @@ import { ClipMonitor } from './ClipMonitor';
 import { Toast } from '../Notifications/Toast';
 import UploadZone from '../UploadZone/UploadZone';
 import RenderDialog from '../RenderDialog/RenderDialog';
+import { TransitionLibrary } from '../Transitions/TransitionLibrary';
 import { recordingStore } from '../../utils/RecordingStore';
 import './EditMode.css';
 
@@ -692,6 +693,7 @@ export const EditMode = () => {
                     )}
                 </div>
 
+                <TransitionLibrary />
                 <RightPanel
                     isOpen={rightPanelOpen}
                     onClose={() => { setRightPanelOpen(false); setActiveTool(null); }}
