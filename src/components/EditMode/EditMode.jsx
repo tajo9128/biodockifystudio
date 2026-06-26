@@ -17,6 +17,8 @@ import { Toast } from '../Notifications/Toast';
 import UploadZone from '../UploadZone/UploadZone';
 import RenderDialog from '../RenderDialog/RenderDialog';
 import { TransitionLibrary } from '../Transitions/TransitionLibrary';
+import { CursorRenderer } from '../Timeline/CursorRenderer';
+import { CursorEffectPanel } from '../Timeline/CursorEffectPanel';
 import { recordingStore } from '../../utils/RecordingStore';
 import { CursorTelemetry } from '../../utils/CursorTelemetry';
 import { useTimelineStore } from '../../store/timelineStore';
@@ -43,11 +45,13 @@ export const EditMode = () => {
     const { setZoomLevel } = useZoom(canvasRef, zoomEnabled);
     const [activeTool, setActiveTool] = useState(null);
     const [rightPanelOpen, setRightPanelOpen] = useState(false);
+    const [videoDimensions, setVideoDimensions] = useState({ width: 1920, height: 1080 });
     const [activeFilters, setActiveFilters] = useState([]);
     const [aiOpen, setAiOpen] = useState(false);
     const [annotationEnabled, setAnnotationEnabled] = useState(false);
     const annotation = useAnnotation(canvasRef, annotationEnabled);
     const setCursorTelemetry = useTimelineStore(s => s.setCursorTelemetry);
+    const cursorTelemetry = useTimelineStore(s => s.cursorTelemetry);
 
     // Stable ref to timeline so mount effects don't capture a stale hook
     const timelineRef = useRef(timeline);
@@ -682,16 +686,26 @@ export const EditMode = () => {
                     ) : (
                         <>
                         {/* Simple video preview — no canvas for basic edit */}
-                        <div className="edit-preview-video">
+                        <div className="edit-preview-video" style={{ position: 'relative' }}>
                             {activeClip?.sourceUrl ? (
                                 <video
                                     key={activeClip.id}
                                     ref={previewVideoRef}
                                     src={activeClip.sourceUrl}
                                     style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 8, background: '#000' }}
+                                    onLoadedMetadata={(e) => {
+                                        setVideoDimensions({ width: e.target.videoWidth, height: e.target.videoHeight });
+                                    }}
                                 />
                             ) : (
                                 <div className="preview-placeholder">No video source available</div>
+                            )}
+                            {cursorTelemetry && (
+                                <CursorRenderer
+                                    videoRef={previewVideoRef}
+                                    canvasWidth={videoDimensions.width}
+                                    canvasHeight={videoDimensions.height}
+                                />
                             )}
                         </div>
                         {/* Transport bar below preview */}
@@ -726,6 +740,7 @@ export const EditMode = () => {
                     onAddTextOverlay={handleAddTextOverlay}
                     allClips={timeline.clips}
                 />
+                {cursorTelemetry && <CursorEffectPanel />}
             </div>
 
             {uploadQueue.length > 0 && (
