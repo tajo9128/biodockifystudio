@@ -58,7 +58,7 @@ export const AudioEnvelope = ({
         const x = e.clientX - rect.left;
         const time = getTime(x);
         onAddVolumeKeyframe?.(clip.id, time, 1.0);
-    }, [clip, onAddVolumeKeyframe]);
+    }, [clip, onAddVolumeKeyframe, getTime]);
 
     const handlePointMouseDown = useCallback((e, kf) => {
         e.stopPropagation();

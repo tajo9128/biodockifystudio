@@ -6,7 +6,7 @@ const TRANSITION_DURATION = 1.0;
 
 export const TransitionHandles = ({
     clips,
-    tracks,
+    tracks: _tracks,
     zoom,
     trackHeight,
     onApplyTransition,
@@ -61,7 +61,7 @@ export const TransitionHandles = ({
             if (data.type === 'transition') {
                 onApplyTransition?.(pair.clipA.id, pair.clipB.id, data.id);
             }
-        } catch {}
+        } catch (err) { void err; }
     };
 
     return (

@@ -65,7 +65,7 @@ export const KeyframeCanvas = ({
                 ctx.restore();
             }
         }
-    }, [clip, zoom, selectedParam]);
+    }, [clip, selectedParam]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
