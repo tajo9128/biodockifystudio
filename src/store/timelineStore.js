@@ -56,6 +56,19 @@ export const useTimelineStore = create((set, get) => ({
     _isUndoRedo: false,
     zoomPanRegions: [],
     cursorEvents: [],
+    cursorTelemetry: null,
+    cursorSettings: {
+        smoothing: 0.5,
+        magnify: false,
+        magnifyRadius: 80,
+        magnifyZoom: 2.0,
+        spotlight: false,
+        spotlightRadius: 120,
+        clickRipples: true,
+        clickColor: '#fbbf24',
+        highlight: true,
+        highlightRadius: 24,
+    },
     annotations: [],
     animations: [],
 
@@ -441,6 +454,11 @@ export const useTimelineStore = create((set, get) => ({
             cursorEvents: state.cursorEvents.filter(e => e.id !== id),
         }));
     },
+
+    setCursorTelemetry: (telemetry) => set({ cursorTelemetry: telemetry }),
+    setCursorSettings: (settings) => set((state) => ({
+        cursorSettings: { ...state.cursorSettings, ...settings },
+    })),
 
     // Annotations/callouts
     addAnnotation: (annotation) => {

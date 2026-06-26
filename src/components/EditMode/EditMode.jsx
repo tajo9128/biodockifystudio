@@ -18,6 +18,8 @@ import UploadZone from '../UploadZone/UploadZone';
 import RenderDialog from '../RenderDialog/RenderDialog';
 import { TransitionLibrary } from '../Transitions/TransitionLibrary';
 import { recordingStore } from '../../utils/RecordingStore';
+import { CursorTelemetry } from '../../utils/CursorTelemetry';
+import { useTimelineStore } from '../../store/timelineStore';
 import './EditMode.css';
 
 export const EditMode = () => {
@@ -27,7 +29,7 @@ export const EditMode = () => {
     const canvasRef = useRef(null);
     const previewVideoRef = useRef(null);
 
-    const [, setServerProject] = useState(null);
+    const [project, setServerProject] = useState(null);
     const [, setServerClips] = useState([]);
     const [projectLoading, setProjectLoading] = useState(!!projectId);
     const [renderOpen, setRenderOpen] = useState(false);
@@ -45,6 +47,7 @@ export const EditMode = () => {
     const [aiOpen, setAiOpen] = useState(false);
     const [annotationEnabled, setAnnotationEnabled] = useState(false);
     const annotation = useAnnotation(canvasRef, annotationEnabled);
+    const setCursorTelemetry = useTimelineStore(s => s.setCursorTelemetry);
 
     // Stable ref to timeline so mount effects don't capture a stale hook
     const timelineRef = useRef(timeline);
@@ -128,6 +131,22 @@ export const EditMode = () => {
             .catch(() => { if (!cancelled) setProjectLoading(false); });
         return () => { cancelled = true; };
     }, [projectId]);
+
+    // Load cursor telemetry when project has cursorUrl
+    useEffect(() => {
+        if (project?.cursorUrl) {
+            const url = project.cursorUrl.startsWith('http')
+                ? project.cursorUrl
+                : `http://localhost:8082${project.cursorUrl}`;
+            fetch(url)
+                .then(r => r.json())
+                .then(data => {
+                    const telemetry = CursorTelemetry.deserialize(JSON.stringify(data));
+                    setCursorTelemetry(telemetry);
+                })
+                .catch(() => {});
+        }
+    }, [project, setCursorTelemetry]);
 
     // Auto-save timeline to server
     const saveTimeoutRef = useRef(null);
