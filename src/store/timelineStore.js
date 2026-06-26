@@ -37,6 +37,10 @@ export const useTimelineStore = create((set, get) => ({
         { id: 'track_2', name: 'Screen', type: 'video', muted: false, locked: false, visible: true },
         { id: 'track_3', name: 'Webcam', type: 'video', muted: false, locked: false, visible: true },
         { id: 'track_4', name: 'Audio', type: 'audio', muted: false, locked: false, visible: true },
+        { id: 'track_zoom', name: 'Zoom-n-Pan', type: 'zoom-pan', muted: false, locked: false, visible: true },
+        { id: 'track_cursor', name: 'Cursor', type: 'cursor', muted: false, locked: false, visible: true },
+        { id: 'track_annotations', name: 'Annotations', type: 'annotations', muted: false, locked: false, visible: true },
+        { id: 'track_animations', name: 'Animations', type: 'animations', muted: false, locked: false, visible: true },
     ],
     currentTime: 0,
     duration: 0,
@@ -50,6 +54,10 @@ export const useTimelineStore = create((set, get) => ({
     canUndo: false,
     canRedo: false,
     _isUndoRedo: false,
+    zoomPanRegions: [],
+    cursorEvents: [],
+    annotations: [],
+    animations: [],
 
     addClip: (trackIndex, clipData) => {
         const state = get();
@@ -392,6 +400,90 @@ export const useTimelineStore = create((set, get) => ({
         }));
     },
 
+    // Zoom-pan regions
+    addZoomPanRegion: (region) => {
+        const id = `zp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        set(state => ({
+            zoomPanRegions: [...state.zoomPanRegions, { id, ...region }],
+        }));
+        return id;
+    },
+
+    updateZoomPanRegion: (id, updates) => {
+        set(state => ({
+            zoomPanRegions: state.zoomPanRegions.map(r => r.id === id ? { ...r, ...updates } : r),
+        }));
+    },
+
+    removeZoomPanRegion: (id) => {
+        set(state => ({
+            zoomPanRegions: state.zoomPanRegions.filter(r => r.id !== id),
+        }));
+    },
+
+    // Cursor events
+    addCursorEvent: (event) => {
+        const id = `cursor_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        set(state => ({
+            cursorEvents: [...state.cursorEvents, { id, ...event }],
+        }));
+        return id;
+    },
+
+    updateCursorEvent: (id, updates) => {
+        set(state => ({
+            cursorEvents: state.cursorEvents.map(e => e.id === id ? { ...e, ...updates } : e),
+        }));
+    },
+
+    removeCursorEvent: (id) => {
+        set(state => ({
+            cursorEvents: state.cursorEvents.filter(e => e.id !== id),
+        }));
+    },
+
+    // Annotations/callouts
+    addAnnotation: (annotation) => {
+        const id = `ann_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        set(state => ({
+            annotations: [...state.annotations, { id, ...annotation }],
+        }));
+        return id;
+    },
+
+    updateAnnotation: (id, updates) => {
+        set(state => ({
+            annotations: state.annotations.map(a => a.id === id ? { ...a, ...updates } : a),
+        }));
+    },
+
+    removeAnnotation: (id) => {
+        set(state => ({
+            annotations: state.annotations.filter(a => a.id !== id),
+        }));
+    },
+
+    // Animations
+    addAnimation: (animation) => {
+        const id = `anim_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        set(state => ({
+            animations: [...state.animations, { id, ...animation }],
+        }));
+        return id;
+    },
+
+    updateAnimation: (id, updates) => {
+        set(state => ({
+            animations: state.animations.map(a => a.id === id ? { ...a, ...updates } : a),
+        }));
+    },
+
+    removeAnimation: (id) => {
+        set(state => ({
+            animations: state.animations.filter(a => a.id !== id),
+        }));
+    },
+
     undo: () => {
         const state = get();
         if (state.undoStack.length === 0 || state._isUndoRedo) return;
@@ -517,6 +609,10 @@ export const useTimelineStore = create((set, get) => ({
             redoStack: [],
             canUndo: false,
             canRedo: false,
+            zoomPanRegions: [],
+            cursorEvents: [],
+            annotations: [],
+            animations: [],
         });
     },
 }));
