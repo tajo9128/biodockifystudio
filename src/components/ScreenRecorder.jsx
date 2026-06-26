@@ -91,7 +91,7 @@ const ScreenRecorder = () => {
     const isStartingRef = useRef(false);
 
     const audioLevel = useAudioLevel(audioStream);
-    const { drawCursorFx } = useCursorFx(canvasRef, cursorFxEnabled);
+    const { drawCursorFx, startTelemetry, stopTelemetry } = useCursorFx(canvasRef, cursorFxEnabled);
     const annotation = useAnnotation(canvasRef, annotationEnabled);
     const { applyZoom, restoreZoom } = useZoom(canvasRef, zoomEnabled);
     const ai = useAI();
@@ -132,13 +132,20 @@ const ScreenRecorder = () => {
             showToast('Recording Failed', 'No video data was captured.', 'error');
             return;
         }
+        const telemetry = stopTelemetry();
+        if (telemetry && telemetry.eventCount > 0) {
+            serverRec.sendJson({
+                type: 'cursor-telemetry',
+                data: telemetry.serialize(),
+            });
+        }
         setPendingRecording({ blob, mimeType });
         serverRec.stop().then(result => {
             if (result) {
                 setPendingRecording(prev => prev ? { ...prev, serverVideoUrl: result.videoUrl, serverProxyUrl: result.proxyUrl } : prev);
             }
         }).catch(() => {});
-    }, [showToast, serverRec]);
+    }, [showToast, serverRec, stopTelemetry]);
 
     const {
         isRecording, isPaused, status: recStatus, startRecording: startMediaRecording, pauseRecording, resumeRecording, stopRecording, resetRecording
@@ -472,12 +479,12 @@ const ScreenRecorder = () => {
             setCountdown(prev => {
                 if (prev <= 1) {
                     if (countdownTimerRef.current) { clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; }
-                    startMediaRecording(); return null;
+                    startMediaRecording(); startTelemetry(); return null;
                 }
                 return prev - 1;
             });
         }, 1000);
-    }, [isRecording, countdown, startMediaRecording, serverRec]);
+    }, [isRecording, countdown, startMediaRecording, serverRec, startTelemetry]);
 
     const startFlow = useCallback(async () => {
         if (isStartingRef.current || isRecording) return;

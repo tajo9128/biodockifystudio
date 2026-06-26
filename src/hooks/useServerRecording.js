@@ -94,6 +94,14 @@ export const useServerRecording = () => {
         });
     }, []);
 
+    const sendJson = useCallback((payload) => {
+        try {
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify(payload));
+            }
+        } catch { /* ignore */ }
+    }, []);
+
     const cancel = useCallback(() => {
         if (wsRef.current) {
             try { wsRef.current.close(); } catch { /* ignore */ }
@@ -109,5 +117,5 @@ export const useServerRecording = () => {
     const serverUrl = videoUrl ? `${API_BASE}${videoUrl}` : null;
     const serverProxyUrl = proxyUrl ? `${API_BASE}${proxyUrl}` : null;
 
-    return { sessionId, videoUrl: serverUrl, proxyUrl: serverProxyUrl, isProcessing, error, start, sendChunk, stop, cancel };
+    return { sessionId, videoUrl: serverUrl, proxyUrl: serverProxyUrl, isProcessing, error, start, sendChunk, sendJson, stop, cancel };
 };
