@@ -1,0 +1,56 @@
+.tl-cursor-track {
+    position: relative;
+    background: rgba(59, 130, 246, 0.05);
+    border-top: 1px solid rgba(59, 130, 246, 0.2);
+}
+.tl-cursor-marker {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    z-index: 2;
+}
+.tl-cursor-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #3b82f6;
+    border: 2px solid #fff;
+}
+.tl-cursor-click .tl-cursor-dot { background: #3b82f6; }
+.tl-cursor-move .tl-cursor-dot { background: #10b981; }
+.tl-cursor-effect-highlight .tl-cursor-dot { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+.tl-cursor-effect-magnify .tl-cursor-dot { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+.tl-cursor-effect-smooth .tl-cursor-dot { background: #8b5cf6; box-shadow: 0 0 8px #8b5cf6; }
+.tl-cursor-effect-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #000;
+    color: #fff;
+    font-size: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.tl-cursor-popup {
+    position: absolute;
+    top: -30px;
+    transform: translateX(-50%);
+    background: var(--bg-secondary, #1e1e2e);
+    border: 1px solid var(--border, #333);
+    border-radius: 4px;
+    padding: 4px;
+    z-index: 10;
+}
+.tl-cursor-popup select {
+    background: var(--bg-primary, #12121a);
+    color: var(--text-primary, #fff);
+    border: 1px solid var(--border, #333);
+    border-radius: 3px;
+    font-size: 11px;
+    padding: 2px 4px;
+}
