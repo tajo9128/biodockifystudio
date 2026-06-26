@@ -77,7 +77,7 @@ export const useTransitions = (canvasRef, renderScene) => {
                     ctx.restore();
                     break;
 
-                case 'zoom':
+                case 'zoom': {
                     ctx.globalAlpha = 1 - eased;
                     ctx.drawImage(fromCanvas, 0, 0);
                     ctx.globalAlpha = 1;
@@ -93,6 +93,7 @@ export const useTransitions = (canvasRef, renderScene) => {
                     ctx.restore();
                     ctx.globalAlpha = 1;
                     break;
+                }
             }
 
             if (progress < 1) {

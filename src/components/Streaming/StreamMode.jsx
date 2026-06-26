@@ -8,7 +8,6 @@ import { useStreams } from '../../hooks/useStreams';
 import { useRecording } from '../../hooks/useRecording';
 import { useStreaming } from '../../hooks/useStreaming';
 import { useReplayBuffer } from '../../hooks/useReplayBuffer';
-import { useAudioLevel } from '../../hooks/useAudioLevel';
 import { SourcePanel } from '../Sources/SourcePanel';
 import { useGuests } from '../../hooks/useGuests';
 import { useLiveChat } from '../../hooks/useLiveChat';
@@ -61,7 +60,6 @@ export const StreamMode = () => {
 
     const scenes = useScenes();
     const streams = useStreams(screenVideoRef, cameraVideoRef, () => {});
-    const audioLevel = useAudioLevel(streams?.audioStream);
     const recording = useRecording({
         screenStream: streams?.screenStream,
         audioStream: streams?.audioStream,
