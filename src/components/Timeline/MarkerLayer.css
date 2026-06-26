@@ -1,0 +1,40 @@
+.tl-marker-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 20px;
+    z-index: 50;
+    pointer-events: none;
+}
+
+.tl-marker-flag {
+    position: absolute;
+    top: 0;
+    pointer-events: auto;
+    cursor: grab;
+    z-index: 51;
+}
+
+.tl-marker-flag-pole {
+    width: 2px;
+    height: 100vh;
+    background: var(--marker-color, #f59e0b);
+    opacity: 0.6;
+    transform: translateX(-1px);
+}
+
+.tl-marker-flag-label {
+    position: absolute;
+    top: 0;
+    left: 4px;
+    background: var(--marker-color, #f59e0b);
+    color: #000;
+    font-size: 10px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    white-space: nowrap;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

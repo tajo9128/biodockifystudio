@@ -1,0 +1,79 @@
+.tl-marker-popup-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.tl-marker-popup {
+    background: var(--bg-secondary, #1e1e2e);
+    border: 1px solid var(--border, #333);
+    border-radius: 8px;
+    padding: 16px;
+    min-width: 260px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.tl-marker-popup h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: var(--text-primary, #fff);
+}
+
+.tl-marker-popup-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--border, #333);
+    border-radius: 4px;
+    background: var(--bg-primary, #12121a);
+    color: var(--text-primary, #fff);
+    font-size: 13px;
+    margin-bottom: 12px;
+    box-sizing: border-box;
+}
+
+.tl-marker-popup-colors {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.tl-marker-popup-color {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+}
+
+.tl-marker-popup-color.active {
+    border-color: #fff;
+}
+
+.tl-marker-popup-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.tl-marker-popup-cancel,
+.tl-marker-popup-save {
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.tl-marker-popup-cancel {
+    background: var(--bg-tertiary, #2a2a3a);
+    color: var(--text-secondary, #aaa);
+}
+
+.tl-marker-popup-save {
+    background: var(--primary, #8b5cf6);
+    color: #fff;
+}
