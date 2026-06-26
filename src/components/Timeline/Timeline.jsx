@@ -9,6 +9,8 @@ import { CursorTrack } from './CursorTrack';
 import { AnnotationsTrack } from './AnnotationsTrack';
 import { AnimationsTrack } from './AnimationsTrack';
 import { useTimelineStore } from '../../store/timelineStore';
+import { TransitionHandles } from './TransitionHandles';
+import { EffectBadge } from './EffectBadge';
 import './Timeline.css';
 
 const TRACK_HEIGHT = 48;
@@ -235,6 +237,7 @@ export const Timeline = ({
                             ))}
                         </div>
                     )}
+                    <EffectBadge effects={clip.filters} />
                     {clip.keyframes && Object.keys(clip.keyframes).length > 0 && (
                         <div className="tl-clip-keyframes">
                             {Object.values(clip.keyframes).flat().map((kf, i) => (
@@ -308,13 +311,30 @@ export const Timeline = ({
                     onDrop={(e) => {
                         e.preventDefault();
                         const clipId = e.dataTransfer.getData('clipId');
-                        if (!clipId || !onDropExternal) return;
-                        const rect = scrollRef.current.getBoundingClientRect();
-                        const x = e.clientX - rect.left + scrollRef.current.scrollLeft;
-                        const y = e.clientY - rect.top;
-                        const trackIndex = Math.max(0, Math.min(tracks.length - 1, Math.floor(y / TRACK_HEIGHT)));
-                        const time = Math.max(0, xToTime(x));
-                        onDropExternal(clipId, trackIndex, time);
+                        if (clipId && onDropExternal) {
+                            const rect = scrollRef.current.getBoundingClientRect();
+                            const x = e.clientX - rect.left + scrollRef.current.scrollLeft;
+                            const y = e.clientY - rect.top;
+                            const trackIndex = Math.max(0, Math.min(tracks.length - 1, Math.floor(y / TRACK_HEIGHT)));
+                            const time = Math.max(0, xToTime(x));
+                            onDropExternal(clipId, trackIndex, time);
+                        }
+                        try {
+                            const data = JSON.parse(e.dataTransfer.getData('application/json'));
+                            if (data.type === 'effect') {
+                                const rect = scrollRef.current.getBoundingClientRect();
+                                const x = e.clientX - rect.left + scrollRef.current.scrollLeft;
+                                const y = e.clientY - rect.top;
+                                const trackIndex = Math.floor(y / TRACK_HEIGHT);
+                                const time = xToTime(x);
+                                const targetClip = clips.find(c => c.trackIndex === trackIndex && time >= c.startTime && time < c.startTime + c.duration);
+                                if (targetClip) {
+                                    useTimelineStore.getState().updateClip(targetClip.id, {
+                                        filters: [...(targetClip.filters || []), { filterId: data.id, params: {} }]
+                                    });
+                                }
+                            }
+                        } catch {}
                     }}>
                     <div className="tl-ruler" style={{ width: totalWidth }}>
                         {renderTimeMarkers()}
@@ -376,6 +396,24 @@ export const Timeline = ({
                         ))}
                     </div>
 
+                    <TransitionHandles
+                        clips={clips}
+                        tracks={tracks}
+                        zoom={zoom}
+                        trackHeight={TRACK_HEIGHT}
+                        onApplyTransition={(clipAId, clipBId, transitionId) => {
+                            const store = useTimelineStore.getState();
+                            const clipA = store.clips.find(c => c.id === clipAId);
+                            const clipB = store.clips.find(c => c.id === clipBId);
+                            store.updateClip(clipAId, { transitions: { ...clipA?.transitions, out: transitionId } });
+                            store.updateClip(clipBId, { transitions: { ...clipB?.transitions, in: transitionId } });
+                        }}
+                        onRemoveTransition={(clipAId) => {
+                            const store = useTimelineStore.getState();
+                            const clipA = store.clips.find(c => c.id === clipAId);
+                            store.updateClip(clipAId, { transitions: { ...clipA?.transitions, out: null } });
+                        }}
+                    />
                     <MarkerLayer
                         markers={markers}
                         zoom={zoom}
