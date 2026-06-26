@@ -1,7 +1,8 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React from 'react';
+import { RealAudioMeter } from './RealAudioMeter';
 import './MixerPanel.css';
 
-export const MixerPanel = ({ isOpen, onClose, scenes, activeSceneId, onUpdateSource }) => {
+export const MixerPanel = ({ isOpen, onClose, scenes, activeSceneId, onUpdateSource, audioStream }) => {
     const activeScene = scenes?.find(s => s.id === activeSceneId);
     if (!isOpen || !activeScene) return null;
 
@@ -21,6 +22,7 @@ export const MixerPanel = ({ isOpen, onClose, scenes, activeSceneId, onUpdateSou
                         <MixerChannel
                             key={source.id}
                             source={source}
+                            audioStream={audioStream}
                             onVolumeChange={(vol) => onUpdateSource?.(activeSceneId, source.id, { audio: { ...source.audio, volume: vol } })}
                             onMuteToggle={() => onUpdateSource?.(activeSceneId, source.id, { audio: { ...source.audio, muted: !source.audio?.muted } })}
                         />
@@ -39,21 +41,7 @@ export const MixerPanel = ({ isOpen, onClose, scenes, activeSceneId, onUpdateSou
     );
 };
 
-const MixerChannel = ({ source, onVolumeChange, onMuteToggle }) => {
-    const [level, setLevel] = useState(0);
-    const animRef = useRef(null);
-
-    // Simulate level meter animation
-    useEffect(() => {
-        if (source.audio?.muted) return;
-        const tick = () => {
-            setLevel(Math.random() * (source.audio?.volume || 100));
-            animRef.current = requestAnimationFrame(tick);
-        };
-        tick();
-        return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
-    }, [source.audio?.volume, source.audio?.muted]);
-
+const MixerChannel = ({ source, audioStream, onVolumeChange, onMuteToggle }) => {
     return (
         <div className={`mixer-channel ${source.audio?.muted ? 'muted' : ''}`}>
             <div className="mixer-channel-top">
@@ -66,13 +54,10 @@ const MixerChannel = ({ source, onVolumeChange, onMuteToggle }) => {
                     {source.audio?.muted ? 'M' : 'M'}
                 </button>
             </div>
-            <div className="mixer-meter">
-                <div className="mixer-meter-fill" style={{
-                    width: `${source.audio?.muted ? 0 : level}%`,
-                    background: level > 90 ? '#ef4444' : level > 70 ? '#f59e0b' : '#10b981',
-                }} />
-                <div className="mixer-meter-peak" style={{ left: `${level}%` }} />
-            </div>
+            <RealAudioMeter
+                audioStream={audioStream}
+                label=""
+            />
             <input
                 type="range"
                 className="mixer-slider"
