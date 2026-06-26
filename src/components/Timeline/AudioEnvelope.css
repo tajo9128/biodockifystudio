@@ -1,0 +1,17 @@
+.tl-audio-envelope {
+    position: absolute;
+    top: 4px;
+    left: 0;
+    pointer-events: auto;
+    cursor: crosshair;
+    z-index: 3;
+}
+
+.tl-envelope-point {
+    cursor: grab;
+    transition: r 0.1s;
+}
+
+.tl-envelope-point:hover {
+    r: 6;
+}
