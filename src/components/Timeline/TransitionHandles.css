@@ -1,0 +1,53 @@
+.tl-transition-handles {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 20;
+}
+.tl-transition-zone {
+    position: absolute;
+    height: 48px;
+    pointer-events: auto;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+.tl-transition-zone:hover {
+    background: rgba(139, 92, 246, 0.2);
+}
+.tl-transition-dragover {
+    background: rgba(139, 92, 246, 0.4) !important;
+    border: 1px dashed var(--primary, #8b5cf6);
+}
+.tl-transition-active {
+    background: rgba(139, 92, 246, 0.15);
+}
+.tl-transition-icon {
+    font-size: 14px;
+    color: var(--primary, #8b5cf6);
+    opacity: 0.6;
+}
+.tl-transition-active .tl-transition-icon {
+    opacity: 1;
+}
+.tl-transition-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-secondary, #1e1e2e);
+    border: 1px solid var(--border, #333);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 10px;
+    color: var(--text-primary, #fff);
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 30;
+}
