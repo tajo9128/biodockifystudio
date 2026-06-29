@@ -5,11 +5,11 @@
 <h1 align="center">OpenCam Studio</h1>
 
 <p align="center">
-  <strong>Record. Edit. Stream. Export. &mdash; All in your browser.</strong>
+  <strong>Record. Edit. Stream. Export. &mdash; Powerful desktop studio.</strong>
 </p>
 
 <p align="center">
-  Free &bull; Open Source &bull; Docker-Ready &bull; AI-Powered &bull; No Install Required
+  Free &bull; Open Source &bull; Docker-Ready &bull; AI-Powered &bull; Docker Desktop Required
 </p>
 
 <p align="center">
@@ -22,7 +22,7 @@
 
 ## What is OpenCam Studio?
 
-OpenCam Studio is a **browser-based screen recorder, video editor, and live streamer** &mdash; no downloads, no installs, no accounts required. It runs entirely in your browser, or as a Docker container on your server.
+OpenCam Studio is a **Docker Desktop screen recorder, video editor, and live streamer**. Requires Docker Desktop to run. It provides a full-featured recording, editing, and streaming studio through your browser, powered by server-side Docker microservices.
 
 | | Feature | Details |
 |---|---|---|
@@ -38,7 +38,9 @@ OpenCam Studio is a **browser-based screen recorder, video editor, and live stre
 
 ## Quick Start
 
-### Option 1: Docker (Recommended)
+> **Prerequisite:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) must be installed on your machine.
+
+### Option 1: Docker Pull (Recommended)
 
 ```bash
 # Pull and run
@@ -50,7 +52,6 @@ docker run -p 3000:80 tajo9128/opencam-studio:v1.0.0
 ### Option 2: Docker Compose (Full Stack)
 
 ```bash
-# Clone the repo
 git clone https://github.com/tajo9128/opencam-studio.git
 cd opencam-studio
 
