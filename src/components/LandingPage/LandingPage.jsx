@@ -263,6 +263,7 @@ const LandingPage = () => {
                 <div className="footer-content">
                     <div className="footer-logo" style={{ color: 'var(--text-main)', background: 'var(--glass)' }}>S</div>
                     <p>OpenCam Studio - Free & Open Source</p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Developed by team of BioDockify</p>
                 </div>
             </footer>
         </div>

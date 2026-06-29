@@ -331,5 +331,6 @@ git push origin feature/my-feature
 ---
 
 <p align="center">
+  Developed by <a href="https://github.com/tajo9128">team of BioDockify</a><br/>
   Made with &hearts; for creators, educators, and streamers worldwide.
 </p>
