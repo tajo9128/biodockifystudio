@@ -5,11 +5,15 @@
 <h1 align="center">OpenCam Studio</h1>
 
 <p align="center">
-  <strong>Record. Edit. Stream. Export. &mdash; Powerful desktop studio.</strong>
+  <strong>The perfect hybrid of OBS Studio + Loom + Kdenlive &mdash; all in your browser.</strong>
 </p>
 
 <p align="center">
-  Free &bull; Open Source &bull; Docker-Ready &bull; AI-Powered &bull; Docker Desktop Required
+  Free &bull; Open Source &bull; Docker-Ready &bull; AI-Powered
+</p>
+
+<p align="center">
+  Developed by <a href="https://www.biodockify.com">BioDockify Team</a> &bull; <a href="https://www.biodockify.com">www.biodockify.com</a>
 </p>
 
 <p align="center">
@@ -332,6 +336,6 @@ git push origin feature/my-feature
 ---
 
 <p align="center">
-  Developed by <a href="https://github.com/tajo9128">team of BioDockify</a><br/>
+  Developed by <a href="https://www.biodockify.com">BioDockify Team</a> (<a href="https://www.biodockify.com">www.biodockify.com</a>)<br/>
   Made with &hearts; for creators, educators, and streamers worldwide.
 </p>
